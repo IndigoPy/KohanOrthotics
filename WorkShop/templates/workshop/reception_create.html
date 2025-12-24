@@ -1,0 +1,18 @@
+{% extends 'workshop/base.html' %}
+{% block title %}ثبت سفارش کارگاه{% endblock %}
+{% block content %}
+
+<div class="container">
+    <h3>ثبت سفارش کارگاه</h3>
+
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">ثبت سفارش</button>
+    </form>
+</div>
+<p style="text-align:center; margin-top:15px;">
+    <a href="{% url 'reception-ready' %}">مشاهده کارهای آماده</a>
+</p>
+
+{% endblock %}

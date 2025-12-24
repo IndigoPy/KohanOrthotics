@@ -1,0 +1,30 @@
+{% extends 'workshop/base.html' %}
+{% block title %}کارگاه{% endblock %}
+{% block content %}
+
+<div class="container">
+    <h3>سفارش {{ order.patient_name }}</h3>
+
+    <p><strong>نوع وسیله:</strong> {{ order.get_device_type_display }}</p>
+    <p><strong>توضیحات پذیرش:</strong><br>{{ order.technical_notes }}</p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <label>وضعیت</label>
+        <select name="status">
+            {% for key, value in order.STATUS_CHOICES %}
+                <option value="{{ key }}" {% if order.status == key %}selected{% endif %}>
+                    {{ value }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <label>توضیحات کارگاه</label>
+        <textarea name="workshop_notes" rows="4">{{ order.workshop_notes }}</textarea>
+
+        <button type="submit">ذخیره</button>
+    </form>
+</div>
+
+{% endblock %}

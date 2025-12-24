@@ -1,0 +1,107 @@
+{% extends 'workshop/base.html' %}
+{% block title %}لیست سفارشات کارگاه{% endblock %}
+{% block content %}
+
+<h3 style="text-align:center;">سفارشات کارگاه</h3>
+<form method="get" class="row g-3 mb-3">
+
+    <div class="col-md-4">
+        <label class="form-label">جستجو (نام بیمار / تلفن)</label>
+        <input type="text" name="search" class="form-control" value="{{ search|default:'' }}"
+            placeholder="نام بیمار یا تلفن">
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">وضعیت سفارش</label>
+        <select name="status" class="form-select">
+            <option value="">همه</option>
+            {% for key, label in status_choices %}
+            <option value="{{ key }}" {% if status == key %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">نوع وسیله</label>
+        <select name="device_type" class="form-select">
+            <option value="">همه</option>
+            {% for key, label in device_choices %}
+            <option value="{{ key }}" {% if device_type == key %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100">اعمال</button>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <a href="{% url 'workshop-list' %}" class="btn btn-secondary w-100">
+            پاک‌کردن
+        </a>
+    </div>
+
+</form>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover align-middle text-center">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>نام بیمار</th>
+                <th>تلفن</th>
+                <th>نوع وسیله</th>
+                <th>وضعیت</th>
+                <th>تاریخ ثبت</th>
+                <th>اقدامات</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for order in orders %}
+            <tr class="
+    {% if order.status == 'new' %}table-secondary
+    {% elif order.status == 'in_progress' %}table-warning
+    {% elif order.status == 'ready' %}table-success
+    {% endif %}
+">
+                <td>{{ forloop.counter }}</td>
+                <td>{{ order.patient_name }}</td>
+                <td>{{ order.patient_phone }}</td>
+                <td>{{ order.get_device_type_display }}</td>
+                <td>{{ order.get_status_display }}</td>
+                <td>{{ order.created_at|date:"Y/m/d" }}</td>
+                <td>
+                    <td>
+    <a href="{% url 'workshop-update' order.id %}" class="btn btn-info btn-sm">جزئیات</a>
+
+</td>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-muted">
+                    سفارشی یافت نشد
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="d-flex justify-content-center">
+    {% if orders.has_previous %}
+        <a class="btn btn-secondary" href="?page=1&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">اولین صفحه</a>
+        <a class="btn btn-secondary" href="?page={{ orders.previous_page_number }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">صفحه قبل</a>
+    {% endif %}
+    <span class="mx-2">صفحه {{ orders.number }} از {{ orders.paginator.num_pages }}</span>
+    {% if orders.has_next %}
+        <a class="btn btn-secondary" href="?page={{ orders.next_page_number }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">صفحه بعد</a>
+        <a class="btn btn-secondary" href="?page={{ orders.paginator.num_pages }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">آخرین صفحه</a>
+    {% endif %}
+</div>
+
+{% endblock %}

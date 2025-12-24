@@ -1,0 +1,75 @@
+{% extends 'workshop/base.html' %}
+
+{% block title %}داشبورد{% endblock %}
+
+{% block content %}
+
+<h4 class="mb-4">داشبورد {{ request.user.username }}</h4>
+
+{% if role == 'reception' %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-center shadow">
+            <div class="card-body">
+                <h6>ثبت سفارش جدید</h6>
+                <a href="{% url 'order-create' %}" class="btn btn-primary mt-2">
+                    ثبت سفارش
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center shadow">
+            <div class="card-body">
+                <h6>کارهای آماده</h6>
+                <p class="fs-4">{{ ready_orders_count }}</p>
+                <a href="{% url 'reception-ready' %}" class="btn btn-success">
+                    مشاهده
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center shadow">
+            <div class="card-body">
+                <h6>آرشیو تحویل‌شده</h6>
+                <a href="{% url 'delivered-archive' %}" class="btn btn-secondary">
+                    آرشیو
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if role == 'workshop' %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-center shadow">
+            <div class="card-body">
+                <h6>سفارشات در حال ساخت</h6>
+                <p class="fs-4">{{ in_progress_count }}</p>
+                <a href="{% url 'workshop-list' %}" class="btn btn-warning">
+                    مشاهده
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card text-center shadow">
+            <div class="card-body">
+                <h6>کارهای آماده‌شده توسط من</h6>
+                <p class="fs-4">{{ my_ready_count }}</p>
+                <a href="{% url 'workshop-list' %}" class="btn btn-success">
+                    لیست کارگاه
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
