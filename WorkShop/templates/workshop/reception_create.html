@@ -8,11 +8,164 @@
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">ثبت سفارش</button>
+
+        <!-- فیلدهای داینامیک اندازه‌ها -->
+        <div id="size-fields" class="container">
+            <!-- فیلدها اینجا اضافه می‌شوند -->
+        </div>
+
+        <button type="button" id="add-size" class="btn btn-primary mt-2">افزودن اندازه</button>
+        <button class="btn btn-success" type="submit" style="width: 100%; margin-top: 10px;">ثبت سفارش</button>
     </form>
 </div>
-<p style="text-align:center; margin-top:15px;">
-    <a href="{% url 'reception-ready' %}">مشاهده کارهای آماده</a>
-</p>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function addSizeInputListeners() {
+            document.querySelectorAll('.size-input').forEach(function (input) {
+                input.addEventListener('click', function () {
+                    // اگر مودال هم نیاز بود، اینجا باز می‌شه
+                });
+            });
+        }
+
+        addSizeInputListeners();
+
+        document.getElementById('add-size').addEventListener('click', function () {
+            var container = document.getElementById('size-fields');
+            var index = container.children.length;
+
+            var newFields = `
+            <div class="row mb-3 align-items-end size-entry">
+                <div class="col-md-4">
+                    <label>پارامتر:</label>
+                    <select name="sizes[${index}][parameter]" class="form-select" required>
+                        <option value="طول پا">طول پا</option>
+                        <option value="محیط مچ پا">محیط مچ پا</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>اندازه پای راست:</label>
+                    <select name="sizes[${index}][right]" class="form-select size-input" required>
+                        <option value="20">سایز 20 (15 سانتی‌متر)</option>
+                        <option value="21">سایز 21 (16 سانتی‌متر)</option>
+                        <!-- بقیه سایزها... -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>اندازه پای چپ:</label>
+                    <select name="sizes[${index}][left]" class="form-select size-input" required>
+                        <option value="20">سایز 20 (15 سانتی‌متر)</option>
+                        <option value="21">سایز 21 (16 سانتی‌متر)</option>
+                        <!-- بقیه سایزها... -->
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-danger remove-size">حذف</button>
+                </div>
+            </div>
+        `;
+
+            container.insertAdjacentHTML('beforeend', newFields);
+            addSizeInputListeners();
+        });
+
+        document.addEventListener('click', function (event) {
+            if (event.target.classList.contains('remove-size')) {
+                var entry = event.target.closest('.size-entry');
+                if (entry) {
+                    entry.remove();
+                }
+            }
+        });
+
+        // وقتی کاربر یک سایز را انتخاب می‌کند
+        document.querySelectorAll('#sizeModal .list-group-item').forEach(function (item) {
+            item.addEventListener('click', function () {
+                var size = this.dataset.size;
+                var length = this.dataset.length;
+                var inputField = sizeModal.relatedInput;
+                if (inputField) {
+                    inputField.value = 'سایز ' + size + ' (طول: ' + length + ' سانتی‌متر)';
+                }
+            });
+        });
+    });
+</script>
+<script>
+    
+    document.addEventListener('DOMContentLoaded', function () {
+        var checkbox = document.getElementById('id_different_designs'); // جایگزین با ID واقعی چک‌باکس
+        var listItem = document.querySelectorAll('div.container:nth-child(2) > div:nth-child(1) > form:nth-child(2) > p:nth-child(8) > span:nth-child(3)');
+        console.log(lidstItem);
+
+        checkbox.addEventListener('change', function () {
+            if (checkbox.checked) {
+                if (listItem) {
+                    listItem.style.display = 'none';
+                }
+            }
+        });
+    });
+
+
+
+    $(document).ready(function () {
+
+        $('#technical-notes-select').select2({
+            tags: true,  // اجازه اضافه کردن تگ‌های جدید
+            tokenSeparators: [',', ' '],
+            placeholder: 'یک یا چند گزینه انتخاب کنید',
+            data: [
+                { id: 'Flexible-FlatFoot', text: 'Flexible FlatFoot' },
+                { id: 'Pes-Cavus', text: 'Pes Cavus' },
+                { id: 'Hyper-Pronated-Foot', text: 'Hyper Pronated Foot' },
+                { id: 'Hyper-Supinated-Foot', text: 'Hyper Supinated Foot' },
+                { id: 'Heel-Pain', text: 'Heel Pain' },
+                { id: 'Metatarsalgia', text: 'Metatarsalgia' },
+                { id: 'Plantar-Fasciitis', text: 'Plantar Fasciitis' },
+                { id: 'Achilles-Thitness', text: 'Achilles Thitness' },
+                { id: 'Bunions', text: 'Bunions' },
+                { id: 'Achilles-Tendinitis', text: 'Achilles Tendinitis' },
+                { id: 'Arthritis', text: 'Arthritis' },
+                { id: 'Neuroma', text: 'Neuroma' },
+                { id: 'Back-Pain', text: 'Back Pain' },
+                { id: 'Knee-Pain', text: 'Knee Pain' },
+                { id: 'Hip-Pain', text: 'Hip Pain' },
+                { id: 'Diabetic-Foot', text: 'Diabetic Foot' },
+
+            ]
+        });
+
+        $('#designes-select').select2({
+            tags: true,  // اجازه اضافه کردن تگ‌های جدید
+            tokenSeparators: [',', ' '],
+            placeholder: 'یک یا چند گزینه انتخاب کنید',
+            data: [
+                { id: 'External-Heel-medial-wedge', text: 'External Heel medial wedge' },
+                { id: 'External-Heel-lateral-wedge', text: 'External Heel lateral wedge' },
+                { id: 'External-Heel+Mid-medial-wedge', text: 'External Heel+Mid medial wedge' },
+                { id: 'External-Heel+Mid-lateral-wedge', text: 'External Heel+Mid lateral wedge' },
+                { id: 'External-Forefoot-medial-wedge', text: 'External Forefoot medial wedge' },
+                { id: 'External-Forefoot-lateral-wedge', text: 'External Forefoot lateral wedge' },
+                { id: 'Internal-Heel-medial-wedge', text: 'Internal Heel medial wedge' },
+                { id: 'Internal-Heel-lateral-wedge', text: 'Internal Heel lateral wedge' },
+                { id: 'Internal-Heel+Mid-medial-wedge', text: 'Internal Heel+Mid medial wedge' },
+                { id: 'Internal-Heel+Mid-lateral-wedge', text: 'Internal Heel+Mid lateral wedge' },
+                { id: 'Internal-Forefoot-medial-wedge', text: 'Internal Forefoot medial wedge' },
+                { id: 'Internal-Forefoot-lateral-wedge', text: 'Internal Forefoot lateral wedge' },
+                { id: 'Soft-Cover', text: 'Soft Cover' },
+                { id: 'Soft-Heel', text: 'Soft Heel' },
+                { id: 'Metatarsal-pad', text: 'Metatarsal pad' },
+                { id: 'Full-insole', text: 'Full insole' },
+                { id: 'Half-insole', text: 'Half insole' },
+
+
+            ]
+        });
+
+
+
+    });
+</script>
 {% endblock %}

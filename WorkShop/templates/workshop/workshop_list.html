@@ -3,12 +3,17 @@
 {% block content %}
 
 <h3 style="text-align:center;">سفارشات کارگاه</h3>
-<form method="get" class="row g-3 mb-3">
+{% load jformat %}
 
+<form method="get" class="row g-3 mb-3">
+    <div class="col-md-3">
+        <label class="form-label">شماره پرونده</label>
+        <input type="text" name="case_number" class="form-control" value="{{ request.GET.case_number|default:'' }}"
+            placeholder="شماره پرونده">
+    </div>
     <div class="col-md-4">
-        <label class="form-label">جستجو (نام بیمار / تلفن)</label>
-        <input type="text" name="search" class="form-control" value="{{ search|default:'' }}"
-            placeholder="نام بیمار یا تلفن">
+        <label class="form-label">جستجو (نام بیمار)</label>
+        <input type="text" name="search" class="form-control" value="{{ search|default:'' }}" placeholder="نام بیمار">
     </div>
 
     <div class="col-md-3">
@@ -45,14 +50,26 @@
     </div>
 
 </form>
-
+<form method="get" class="mb-3">
+    <div class="row">
+        <div class="col-md-4">
+            <label for="per_page" class="form-label">تعداد رکورد در هر صفحه:</label>
+            <select name="per_page" id="per_page" class="form-select" onchange="this.form.submit()">
+                <option value="15" {% if records_per_page == '15' %}selected{% endif %}>15</option>
+                <option value="25" {% if records_per_page == '25' %}selected{% endif %}>25</option>
+                <option value="30" {% if records_per_page == '30' %}selected{% endif %}>30</option>
+                <option value="40" {% if records_per_page == '40' %}selected{% endif %}>40</option>
+            </select>
+        </div>
+    </div>
+</form>
 <div class="table-responsive">
     <table class="table table-bordered table-hover align-middle text-center">
         <thead class="table-dark">
             <tr>
                 <th>#</th>
+                <th>شماره پرونده</th>
                 <th>نام بیمار</th>
-                <th>تلفن</th>
                 <th>نوع وسیله</th>
                 <th>وضعیت</th>
                 <th>تاریخ ثبت</th>
@@ -67,23 +84,26 @@
     {% elif order.status == 'in_progress' %}table-warning
     {% elif order.status == 'ready' %}table-success
     {% endif %}
+    {% if order.priority == 'urgent' %}urgent-row{% endif %}
 ">
                 <td>{{ forloop.counter }}</td>
+                <td>{{ order.case_number }}</td>
                 <td>{{ order.patient_name }}</td>
-                <td>{{ order.patient_phone }}</td>
                 <td>{{ order.get_device_type_display }}</td>
                 <td>{{ order.get_status_display }}</td>
-                <td>{{ order.created_at|date:"Y/m/d" }}</td>
+                <td>{{ order.created_at|jformat:"%Y/%m/%d %H:%M" }}</td>
                 <td>
-                    <td>
-    <a href="{% url 'workshop-update' order.id %}" class="btn btn-info btn-sm">جزئیات</a>
-
-</td>
+                    <a href="{% url 'workshop-update' order.id %}" class="btn btn-info btn-sm">جزئیات</a>
+                    {% if user.groups.all.0.name == 'Reception' %}
+                    <a href="{% url 'workshop-delete' order.id %}" class="btn btn-danger btn-sm"
+                        onclick="return confirm('آیا مطمئن هستید که می‌خواهید این سفارش را حذف کنید؟');">حذف</a>
+                    {% endif %}
                 </td>
+
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="text-muted">
+                <td colspan="6" class="text-muted">
                     سفارشی یافت نشد
                 </td>
             </tr>
@@ -92,16 +112,35 @@
     </table>
 </div>
 
-<div class="d-flex justify-content-center">
-    {% if orders.has_previous %}
-        <a class="btn btn-secondary" href="?page=1&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">اولین صفحه</a>
-        <a class="btn btn-secondary" href="?page={{ orders.previous_page_number }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">صفحه قبل</a>
+<div class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <a style = "margin: 5px; border-radius: 50%; line-height: 1;" href="?page={{ page_obj.previous_page_number }}&per_page={{ records_per_page }}" class="page-link"><</a>
+    {% else %}
+    <span style = "margin: 5px; border-radius: 50%; line-height: 1;" class="page-link disabled"><</span>
     {% endif %}
-    <span class="mx-2">صفحه {{ orders.number }} از {{ orders.paginator.num_pages }}</span>
-    {% if orders.has_next %}
-        <a class="btn btn-secondary" href="?page={{ orders.next_page_number }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">صفحه بعد</a>
-        <a class="btn btn-secondary" href="?page={{ orders.paginator.num_pages }}&search={{ search|default:'' }}&status={{ status }}&device_type={{ device_type }}">آخرین صفحه</a>
+
+
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <span style = "margin: 5px;" style = "margin: 5px;" class="page-info">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span>
+    {% endif %}
+
+    {% if page_obj.paginator.count > 0 %}
+    <span style = "margin: 5px;" class="total-count">تعداد کل سفارشات: {{ page_obj.paginator.count }}</span>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+    {% if page_obj.number == num %}
+    <span style = "margin: 5px; border-radius: 50%; " class="current-page">{{ num }}</span>
+    {% else %}
+    <a style = "margin: 5px; border-radius: 50%;" href="?page={{ num }}" class="page-link">{{ num }}</a>
+    {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a style = "margin: 5px; border-radius: 50%; line-height: 1;" href="?page={{ page_obj.next_page_number }}&per_page={{ records_per_page }}" class="page-link">></a>
+    {% else %}
+    <span style = "margin: 5px; border-radius: 50%; line-height: 1;" class="page-link disabled">></span>
     {% endif %}
 </div>
+
 
 {% endblock %}

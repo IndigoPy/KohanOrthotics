@@ -3,28 +3,109 @@
 {% block content %}
 
 <div class="container">
-    <h3>سفارش {{ order.patient_name }}</h3>
+    {% load custom_filters %}
+    {% load jformat %}
+    <h3 class="mb-4">سفارش {{ order.patient_name }}</h3>
 
-    <p><strong>نوع وسیله:</strong> {{ order.get_device_type_display }}</p>
-    <p><strong>توضیحات پذیرش:</strong><br>{{ order.technical_notes }}</p>
+    <div class="mb-3">
+        <strong>نوع ارتوز:</strong> <br> {{ order.get_device_type_display }}
+    </div>
 
+    <div class="mb-4">
+        <strong>خلاصه پرونده:</strong><br>
+        {% if technical_notes_list == "" %}
+        هیچ خلاصه پرونده‌ای ثبت نشده است.
+        {% else %}
+        {% for note in technical_notes_list %}
+        <span class="badge bg-primary m-1" style="font-size: 12pt;">{{ note }}</span>
+        {% endfor %}
+        {% endif %}
+    </div>
+    <div class="mb-4">
+        <strong>طراحی کفی:</strong><br>
+        {% if designes_list == "" %}
+        هیچ طراحی ثبت نشده است.
+        {% else %}
+        {% for design in designes_list %}
+        <span class="badge bg-primary m-1" style="font-size: 12pt;">{{ design }}</span>
+        {% endfor %}
+        {% endif %}
+    </div>
     <form method="post">
         {% csrf_token %}
-
-        <label>وضعیت</label>
-        <select name="status">
-            {% for key, value in order.STATUS_CHOICES %}
-                <option value="{{ key }}" {% if order.status == key %}selected{% endif %}>
-                    {{ value }}
+        <div class="mb-3">
+            <label class="form-label">وضعیت</label>
+            <select name="status" class="form-select">
+                {% if user.groups.all.0.name == 'Workshop' %}
+                <!-- وضعیت‌های مجاز برای Workshop -->
+                <option value="in_progress" {% if current_status == 'in_progress' %}selected{% endif %}>در حال ساخت
                 </option>
-            {% endfor %}
-        </select>
+                <option value="ready" {% if current_status == 'ready' %}selected{% endif %}>آماده تحویل</option>
+                <option value="delivered" {% if current_status == 'delivered' %}selected{% endif %}>تحویل داده شده
+                </option>
+                {% else %}
+                <!-- سایر وضعیت‌ها برای کاربران دیگر -->
+                <option value="registered">ثبت شده</option>
+                <option value="received">دریافت شده از تأمین‌کننده</option>
+                <option value="in_progress">در حال ساخت</option>
+                <option value="ready">آماده تحویل</option>
+                <option value="canceled">لغو شده</option>
+                <option value="delivered">تحویل داده شده</option>
+                {% endif %}
+            </select>
+        </div>
 
-        <label>توضیحات کارگاه</label>
-        <textarea name="workshop_notes" rows="4">{{ order.workshop_notes }}</textarea>
-
-        <button type="submit">ذخیره</button>
-    </form>
+        <h4>اندازه‌های ثبت شده:</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>پارامتر</th>
+                    <th>اندازه پای راست</th>
+                    <th>اندازه پای چپ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for measurement in measurements %}
+                <tr>
+                    <td>{{ measurement.parameter }}</td>
+                    <td>{{ measurement.right_foot_size }}</td>
+                    <td>{{ measurement.left_foot_size }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 </div>
+<div class="mb-3">
+    <label class="form-label">توضیحات کارگاه</label>
+    <textarea name="workshop_notes" class="form-control" rows="4">{{ order.workshop_notes }}</textarea>
+</div>
+
+<button type="submit" class="btn btn-primary">ذخیره</button>
+</form>
+
+<div class="status-history">
+    <h4>تاریخچه وضعیت‌ها</h4>
+
+    <div class="timeline">
+        {% for record in order.status_history.all %}
+        <div class="timeline-item">
+            <div class="timeline-marker"></div>
+            <div class="timeline-content">
+                <p><strong>وضعیت:</strong> {{ record.status|translate_status }}</p>
+                <p><strong>تاریخ:</strong> {{ record.changed_at|jformat:"%Y/%m/%d %H:%M" }}</p>
+                <p><strong>توسط:</strong> {{ record.changed_by.username }}</p>
+            </div>
+        </div>
+        {% empty %}
+        <p>هنوز هیچ تغییری ثبت نشده است.</p>
+        {% endfor %}
+    </div>
+
+</div>
+
+
+
+</div>
+
 
 {% endblock %}

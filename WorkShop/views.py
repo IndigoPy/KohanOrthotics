@@ -1,14 +1,14 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
-from .models import Order
+from .models import Order, OrderStatusHistory, Measurement
 from .forms import OrderCreateForm
 from .decorators import group_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
-from .decorators import group_required
 from .models import Order
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 
 
 @login_required
@@ -44,28 +44,56 @@ def reception_create_order(request):
         form = OrderCreateForm(request.POST)
         if form.is_valid():
             order = form.save(commit=False)
-            order.created_by = request.user
+            order.technical_notes = ', '.join(
+                request.POST.getlist('technical_notes', []))
+            order.designes = ', '.join(
+                request.POST.getlist('designes', []))
             order.save()
+            print(request.POST)
+            status = request.POST.get('status')
+            index = 0
+            while f'sizes[{index}][right]' in request.POST:
+                right_size = request.POST.get(f'sizes[{index}][right]')
+                left_size = request.POST.get(f'sizes[{index}][left]')
+                param = request.POST.get(f'sizes[{index}][parameter]')
+                # هر اندازه را ذخیره می‌کنیم
+                Measurement.objects.create(
+                    order=order,
+                    parameter=param,
+                    right_foot_size=right_size,
+                    left_foot_size=left_size
+                )
+                index += 1
+             # اضافه کردن رکورد تاریخچه وضعیت اولیه
+            OrderStatusHistory.objects.create(
+                order=order,
+                status=status,
+                changed_by=request.user,  # کاربری که سفارش رو ثبت کرده
+            )
+            messages.success(
+                request, f'سفارش برای {order.patient_name} با موفقیت ثبت شد! شماره سفارش: {order.id}')
             return redirect('order-create')
     else:
         form = OrderCreateForm()
 
     return render(request, 'workshop/reception_create.html', {
-        'form': form
+        'form': form,
     })
 
 
 @group_required('Workshop')
 def workshop_order_list(request):
-    orders = Order.objects.all()
+    orders = Order.objects.filter(send_to='workshop')
 
     # فیلتر نام بیمار
     search = request.GET.get('search')
     if search:
-        orders = orders.filter(
-            Q(patient_name__icontains=search) |
-            Q(phone__icontains=search)
-        )
+        orders = orders.filter(patient_name__icontains=search)
+
+    # فیلتر شماره پرونده
+    case_number = request.GET.get('case_number')
+    if case_number:
+        orders = orders.filter(case_number__icontains=case_number)
 
     # فیلتر وضعیت
     status = request.GET.get('status')
@@ -77,42 +105,57 @@ def workshop_order_list(request):
     if device_type:
         orders = orders.filter(device_type=device_type)
 
-    orders = orders.order_by('-created_at')
+    orders = Order.objects.exclude(
+        status='delivered').order_by('-priority', '-created_at')
 
-    return render(
-        request,
-        'workshop/workshop_list.html',
-        {
-            'orders': orders,
-            'search': search,
-            'status': status,
-            'device_type': device_type,
-            'status_choices': Order.STATUS_CHOICES,
-            'device_choices': Order.DEVICE_CHOICES,
-        }
-    )
+    # دریافت تعداد رکورد در هر صفحه
+    records_per_page = request.GET.get('per_page', 15)
+
+    # صفحه‌بندی
+    paginator = Paginator(orders, records_per_page)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'workshop/workshop_list.html', {
+        'orders': page_obj,  # اینجا page_obj را به عنوان orders می‌فرستیم
+        'search': search,
+        'case_number': case_number,
+        'status': status,
+        'device_type': device_type,
+        'status_choices': Order.STATUS_CHOICES,
+        'device_choices': Order.DEVICE_CHOICES,
+        'records_per_page': records_per_page,
+        'page_obj': page_obj,
+    })
 
 
 @group_required('Workshop')
 def workshop_update_order(request, order_id):
     order = get_object_or_404(Order, id=order_id)
-
+    # اندازه‌های مرتبط با این سفارش را دریافت می‌کنیم
+    technical_notes_list = order.technical_notes.split(",") if order.technical_notes != "" else ""
+    designes_list = order.designes.split(",") if order.designes != "" else ""
+    measurements = order.measurements.all()
     if request.method == 'POST':
-        status = request.POST.get('status')
-        workshop_notes = request.POST.get('workshop_notes')
+        new_status = request.POST.get('status')
 
-        order.status = status
-        order.workshop_notes = workshop_notes
+        if new_status and new_status != order.status:
+            OrderStatusHistory.objects.create(
+                order=order,
+                status=new_status,
+                changed_by=request.user
+            )
+            order.status = new_status
+            order.save()
 
-        if status == 'ready' and order.ready_at is None:
-            order.ready_at = timezone.now()
-            order.ready_by = request.user
-
-        order.save()
-        return redirect('workshop-list')
+        return redirect('workshop-list')  # ریدایرکت به صفحه مورد نظر
 
     return render(request, 'workshop/workshop_update.html', {
-        'order': order
+        'order': order,
+        'current_status': order.status,
+        'measurements': measurements,
+        'technical_notes_list': technical_notes_list,
+        'designes_list': designes_list,
     })
 
 
@@ -180,8 +223,7 @@ def delivered_orders_archive(request):
     search = request.GET.get('search')
     if search:
         orders = orders.filter(
-            Q(patient_name__icontains=search) |
-            Q(phone__icontains=search)
+            Q(patient_name__icontains=search)
         )
 
     # فیلتر تاریخ تحویل
@@ -208,3 +250,15 @@ def delivered_orders_archive(request):
             'end_date': end_date,
         }
     )
+
+
+@group_required('Reception')
+def workshop_delete(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    order.delete()
+    # همیشه یک پاسخ redirect برگردانید
+    return redirect('workshop-list')
+
+def examination_order_list(request):
+    orders = Order.objects.filter(send_to='examination')
+    return render(request, 'examination_order_list.html', {'orders': orders})

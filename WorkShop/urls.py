@@ -22,5 +22,6 @@ urlpatterns = [
         name='delivered-archive'
     ),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('workshop/<int:order_id>/delete/', views.workshop_delete, name='workshop-delete'),
 
 ]
