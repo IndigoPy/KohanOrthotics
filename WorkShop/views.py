@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
+from urllib3 import request
 from .models import Order, OrderStatusHistory, Measurement
 from .forms import OrderCreateForm
 from .decorators import group_required
@@ -44,41 +45,83 @@ def reception_create_order(request):
         form = OrderCreateForm(request.POST)
         if form.is_valid():
             order = form.save(commit=False)
-            order.technical_notes = ', '.join(
-                request.POST.getlist('technical_notes', []))
-            order.designes = ', '.join(
-                request.POST.getlist('designes', []))
+
+            different_feet = request.POST.get('different_designs') == 'on'
+
+            if different_feet:
+                order.different_designs = True
+
+                # ذخیره فیلدهای جداگانه (حتی اگر خالی باشن)
+                order.designes_left = ', '.join(
+                    request.POST.getlist('designes_left'))
+                order.designes_right = ', '.join(
+                    request.POST.getlist('designes_right'))
+                order.technical_notes_left = ', '.join(
+                    request.POST.getlist('technical_notes_left'))
+                order.technical_notes_right = ', '.join(
+                    request.POST.getlist('technical_notes_right'))
+
+                order.designes = ''
+                order.technical_notes = ''
+
+                # اختیاری: اگر می‌خوای حداقل یکی پر شده باشه
+                # if not (order.designes_left or order.designes_right or order.technical_notes_left or order.technical_notes_right):
+                #     messages.error(request, 'لطفاً حداقل یکی از بخش‌های چپ یا راست را پر کنید.')
+                #     return render(request, 'workshop/reception_create.html', {'form': form})
+
+            else:
+                order.different_designs = False
+                order.designes_left = order.designes_right = ''
+                order.technical_notes_left = order.technical_notes_right = ''
+
+                # چک می‌کنیم فیلدهای اصلی پر شده باشن
+                designes = request.POST.getlist('designes')
+                technical_notes = request.POST.getlist('technical_notes')
+
+                if not designes:
+                    messages.error(request, 'فیلد "طراحی‌ها" الزامی است.')
+                    return render(request, 'workshop/reception_create.html', {'form': form})
+
+                if not technical_notes:
+                    messages.error(request, 'فیلد "خلاصه پرونده" الزامی است.')
+                    return render(request, 'workshop/reception_create.html', {'form': form})
+
+                order.designes = ', '.join(designes)
+                order.technical_notes = ', '.join(technical_notes)
+
             order.save()
-            print(request.POST)
-            status = request.POST.get('status')
+
+            # —————————————— ذخیره اندازه‌ها (همون قبلی، بدون تغییر) ——————————————
             index = 0
-            while f'sizes[{index}][right]' in request.POST:
-                right_size = request.POST.get(f'sizes[{index}][right]')
-                left_size = request.POST.get(f'sizes[{index}][left]')
+            while f'sizes[{index}][parameter]' in request.POST:
                 param = request.POST.get(f'sizes[{index}][parameter]')
-                # هر اندازه را ذخیره می‌کنیم
-                Measurement.objects.create(
-                    order=order,
-                    parameter=param,
-                    right_foot_size=right_size,
-                    left_foot_size=left_size
-                )
+                right_size = request.POST.get(f'sizes[{index}][right]', '')
+                left_size = request.POST.get(f'sizes[{index}][left]', '')
+
+                if param:
+                    Measurement.objects.create(
+                        order=order,
+                        parameter=param,
+                        right_foot_size=right_size or None,
+                        left_foot_size=left_size or None
+                    )
                 index += 1
-             # اضافه کردن رکورد تاریخچه وضعیت اولیه
+
+            # —————————————— تاریخچه وضعیت ——————————————
+            status = request.POST.get('status', 'registered')
             OrderStatusHistory.objects.create(
                 order=order,
                 status=status,
-                changed_by=request.user,  # کاربری که سفارش رو ثبت کرده
+                changed_by=request.user,
             )
+
             messages.success(
                 request, f'سفارش برای {order.patient_name} با موفقیت ثبت شد! شماره سفارش: {order.id}')
             return redirect('order-create')
     else:
         form = OrderCreateForm()
 
-    return render(request, 'workshop/reception_create.html', {
-        'form': form,
-    })
+    return render(request, 'workshop/reception_create.html', {'form': form})
 
 
 @group_required('Workshop')
@@ -132,30 +175,67 @@ def workshop_order_list(request):
 @group_required('Workshop')
 def workshop_update_order(request, order_id):
     order = get_object_or_404(Order, id=order_id)
-    # اندازه‌های مرتبط با این سفارش را دریافت می‌کنیم
-    technical_notes_list = order.technical_notes.split(",") if order.technical_notes != "" else ""
-    designes_list = order.designes.split(",") if order.designes != "" else ""
     measurements = order.measurements.all()
+# —————————————— پیدا کردن همه سفارشات این بیمار (بر اساس شماره پرونده) ——————————————
+    patient_orders = Order.objects.filter(
+        case_number=order.case_number
+    ).exclude(
+        id=order.id  # سفارش فعلی رو حذف کن تا تکرار نشه
+    ).order_by('-created_at')  # جدیدترین اول
+    # آماده‌سازی لیست‌ها برای نمایش در قالب
+    if order.different_designs:
+        technical_notes_list_left = order.technical_notes_left.split(
+            ', ') if order.technical_notes_left else []
+        technical_notes_list_right = order.technical_notes_right.split(
+            ', ') if order.technical_notes_right else []
+        technical_notes_list = None
+    else:
+        technical_notes_list = order.technical_notes.split(
+            ', ') if order.technical_notes else []
+        technical_notes_list_left = technical_notes_list_right = None
+
+    if order.different_designs:
+        designes_list_left = order.designes_left.split(
+            ', ') if order.designes_left else []
+        designes_list_right = order.designes_right.split(
+            ', ') if order.designes_right else []
+        designes_list = None
+    else:
+        designes_list = order.designes.split(', ') if order.designes else []
+        designes_list_left = designes_list_right = None
+
     if request.method == 'POST':
-        new_status = request.POST.get('status')
-
-        if new_status and new_status != order.status:
-            OrderStatusHistory.objects.create(
-                order=order,
-                status=new_status,
-                changed_by=request.user
-            )
-            order.status = new_status
+        new_status = request.POST.get('status').strip()
+        new_notes = request.POST.get('workshop_notes', '').strip()
+        if new_status != order.status or new_notes != (order.workshop_notes or ''):
+            # ذخیره توضیحات کارگاه
+            order.workshop_notes = new_notes
             order.save()
-
-        return redirect('workshop-list')  # ریدایرکت به صفحه مورد نظر
+            # ثبت در تاریخچه فقط اگر وضعیت تغییر کرده باشه
+            if new_status != order.status:
+                OrderStatusHistory.objects.create(
+                    order=order,
+                    status=new_status,
+                    changed_by=request.user,
+                    notes=new_notes  # اگر فیلد notes در مدل داری، یا توضیحات رو جدا ذخیره کن
+                )
+                order.status = new_status
+                order.save()
+            else:
+                messages.success(
+                    request, f'وضعیت سفارش {order.id} به {new_status} تغییر کرد.')
+        return redirect('workshop-list')
 
     return render(request, 'workshop/workshop_update.html', {
         'order': order,
-        'current_status': order.status,
         'measurements': measurements,
+        'patient_orders': patient_orders,
         'technical_notes_list': technical_notes_list,
+        'technical_notes_list_left': technical_notes_list_left,
+        'technical_notes_list_right': technical_notes_list_right,
         'designes_list': designes_list,
+        'designes_list_left': designes_list_left,
+        'designes_list_right': designes_list_right,
     })
 
 
@@ -258,6 +338,7 @@ def workshop_delete(request, order_id):
     order.delete()
     # همیشه یک پاسخ redirect برگردانید
     return redirect('workshop-list')
+
 
 def examination_order_list(request):
     orders = Order.objects.filter(send_to='examination')

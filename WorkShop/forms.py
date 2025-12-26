@@ -24,9 +24,9 @@ class OrderCreateForm(forms.ModelForm):
             'device_type',
             'status',
             'side',
+            'different_designs',
             'technical_notes',
             'designes',
-            'different_designs',
             'priority',
             'send_to',
         ]
@@ -64,3 +64,7 @@ class OrderCreateForm(forms.ModelForm):
                 'class': 'form-control'
             }),
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['technical_notes'].required = False
+        self.fields['designes'].required = False

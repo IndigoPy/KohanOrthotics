@@ -77,14 +77,23 @@ class Order(models.Model):
     )
 
     technical_notes = models.CharField(
-        blank=False, verbose_name='خلاصه پرونده')
+        blank=False, verbose_name='خلاصه پرونده', editable=True,)
 
     designes = models.CharField(
-        blank=False, verbose_name='طراحی‌ها', max_length=255, default='', editable=True, name='designes')
+        blank=False, verbose_name='طراحی‌ها', default='', editable=True, )
 
     different_designs = models.BooleanField(
-        default=False, verbose_name="آیا طراحی‌ها متفاوت هستند؟")
-
+        default=False, verbose_name="آیا دو پا متفاوت هستند؟")
+    
+    different_technical_notes = models.BooleanField(
+        default=False,
+        verbose_name="آیا خلاصه پرونده برای پای چپ و راست متفاوت است؟"
+    )
+    
+    designes_left = models.TextField(blank=True, null=True)
+    designes_right = models.TextField(blank=True, null=True)
+    technical_notes_left = models.TextField(blank=True, null=True)
+    technical_notes_right = models.TextField(blank=True, null=True)
     priority = models.CharField(
         max_length=10,
         choices=PRIORITY_CHOICES,
@@ -126,8 +135,8 @@ class OrderStatusHistory(models.Model):
     changed_at = models.DateTimeField(auto_now_add=True)
     changed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True)
-
-
+    notes = models.TextField(blank=True, verbose_name="توضیحات کارگاه")  # اضافه شد
+    
 class Measurement(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name='measurements')

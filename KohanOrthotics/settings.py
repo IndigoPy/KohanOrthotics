@@ -116,5 +116,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# آدرس پوشه‌ای که فایل‌های static جمع‌آوری می‌شن (برای production)
+STATIC_URL = '/static/' 
+
 LOGIN_URL = '/login/'

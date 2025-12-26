@@ -1,171 +1,280 @@
 {% extends 'workshop/base.html' %}
+{% load static %}
+
 {% block title %}ثبت سفارش کارگاه{% endblock %}
+
 {% block content %}
+<div class="container" style="margin: 10px;">
+    <h3 class="my-4">ثبت سفارش کارگاه</h3>
 
-<div class="container">
-    <h3>ثبت سفارش کارگاه</h3>
-
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
 
         <!-- فیلدهای داینامیک اندازه‌ها -->
-        <div id="size-fields" class="container">
-            <!-- فیلدها اینجا اضافه می‌شوند -->
-        </div>
+        <div id="size-fields" class="mb-4"></div>
 
-        <button type="button" id="add-size" class="btn btn-primary mt-2">افزودن اندازه</button>
-        <button class="btn btn-success" type="submit" style="width: 100%; margin-top: 10px;">ثبت سفارش</button>
+        <button type="button" id="add-size" class="btn btn-primary mb-3">افزودن اندازه</button>
+        <button type="submit" class="btn btn-success w-100">ثبت سفارش</button>
     </form>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        function addSizeInputListeners() {
-            document.querySelectorAll('.size-input').forEach(function (input) {
-                input.addEventListener('click', function () {
-                    // اگر مودال هم نیاز بود، اینجا باز می‌شه
+        // تغییر متن لیبل چک‌باکس بعد از لود صفحه
+        const checkboxLabel = document.querySelector('label[for="id_different_designs"]');
+        if (checkboxLabel) {
+            checkboxLabel.innerHTML = 'آیا دو پا متفاوت هستند؟:';
+            // اضافه کردن توضیح کوچک
+            const helpText = document.createElement('small');
+            helpText.className = 'text-muted d-block mt-1';
+            helpText.textContent = 'اگر تیک بزنید، طراحی و خلاصه پرونده برای پای چپ و راست جداگانه تنظیم می‌شود.';
+            checkboxLabel.appendChild(helpText);
+        }
+
+        let selectedParameters = [];
+        let fieldCount = 0;
+
+        const designs = [
+            { id: 'External-Heel-medial-wedge', text: 'External Heel medial wedge' },
+            { id: 'External-Heel-lateral-wedge', text: 'External Heel lateral wedge' },
+            { id: 'External-Heel+Mid-medial-wedge', text: 'External Heel+Mid medial wedge' },
+            { id: 'External-Heel+Mid-lateral-wedge', text: 'External Heel+Mid lateral wedge' },
+            { id: 'External-Forefoot-medial-wedge', text: 'External Forefoot medial wedge' },
+            { id: 'External-Forefoot-lateral-wedge', text: 'External Forefoot lateral wedge' },
+            { id: 'Internal-Heel-medial-wedge', text: 'Internal Heel medial wedge' },
+            { id: 'Internal-Heel-lateral-wedge', text: 'Internal Heel lateral wedge' },
+            { id: 'Internal-Heel+Mid-medial-wedge', text: 'Internal Heel+Mid medial wedge' },
+            { id: 'Internal-Heel+Mid-lateral-wedge', text: 'Internal Heel+Mid lateral wedge' },
+            { id: 'Internal-Forefoot-medial-wedge', text: 'Internal Forefoot medial wedge' },
+            { id: 'Internal-Forefoot-lateral-wedge', text: 'Internal Forefoot lateral wedge' },
+            { id: 'Soft-Cover', text: 'Soft Cover' },
+            { id: 'Soft-Heel', text: 'Soft Heel' },
+            { id: 'Metatarsal-pad', text: 'Metatarsal pad' },
+            { id: 'Full-insole', text: 'Full insole' },
+            { id: 'Half-insole', text: 'Half insole' },
+        ];
+
+        const technicalNotes = [
+            { id: 'Flexible-FlatFoot', text: 'Flexible FlatFoot' },
+            { id: 'Pes-Cavus', text: 'Pes Cavus' },
+            { id: 'Hyper-Pronated-Foot', text: 'Hyper Pronated Foot' },
+            { id: 'Hyper-Supinated-Foot', text: 'Hyper Supinated Foot' },
+            { id: 'Heel-Pain', text: 'Heel Pain' },
+            { id: 'Metatarsalgia', text: 'Metatarsalgia' },
+            { id: 'Plantar-Fasciitis', text: 'Plantar Fasciitis' },
+            { id: 'Achilles-Thitness', text: 'Achilles Thitness' },
+            { id: 'Bunions', text: 'Bunions' },
+            { id: 'Achilles-Tendinitis', text: 'Achilles Tendinitis' },
+            { id: 'Arthritis', text: 'Arthritis' },
+            { id: 'Neuroma', text: 'Neuroma' },
+            { id: 'Back-Pain', text: 'Back Pain' },
+            { id: 'Knee-Pain', text: 'Knee Pain' },
+            { id: 'Hip-Pain', text: 'Hip Pain' },
+            { id: 'Diabetic-Foot', text: 'Diabetic Foot' },
+        ];
+
+        // —————————————— بخش اندازه‌های داینامیک ——————————————
+        function createSizeRow() {
+            const index = fieldCount++;
+            const row = document.createElement('div');
+            row.className = 'row mb-3 align-items-end size-entry';
+            row.innerHTML = `
+            <div class="col-md-4">
+                <label class="form-label">پارامتر:</label>
+                <select name="sizes[${index}][parameter]" class="form-select parameter-select" required>
+                    <option value="">انتخاب کنید</option>
+                    <option value="طول پا">طول پا</option>
+                    <option value="محیط مچ پا">محیط مچ پا</option>
+                    <option value="محیط ساق پا">محیط ساق پا</option>
+                    <option value="محیط کف پا">محیط کف پا</option>
+                </select>
+            </div>
+            <div class="col-md-3 size-inputs right"></div>
+            <div class="col-md-3 size-inputs left"></div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-danger btn-sm remove-size">حذف</button>
+            </div>
+        `;
+            document.getElementById('size-fields').appendChild(row);
+            attachParameterListener(row.querySelector('.parameter-select'));
+            updateSelectOptions();
+        }
+
+        createSizeRow();
+        document.getElementById('add-size').addEventListener('click', createSizeRow);
+
+        function attachParameterListener(select) {
+            select.addEventListener('change', function () {
+                const value = this.value;
+                const row = this.closest('.size-entry');
+                const right = row.querySelector('.size-inputs.right');
+                const left = row.querySelector('.size-inputs.left');
+                const index = this.name.match(/\[(\d+)\]/)[1];
+
+                const old = this.dataset.prev || '';
+                if (old && selectedParameters.includes(old)) {
+                    selectedParameters = selectedParameters.filter(p => p !== old);
+                }
+
+                if (value && selectedParameters.includes(value)) {
+                    alert('این پارامتر قبلاً انتخاب شده است!');
+                    this.value = '';
+                    right.innerHTML = left.innerHTML = '';
+                    updateSelectOptions();
+                    delete this.dataset.prev;
+                    return;
+                }
+
+                this.dataset.prev = value;
+                if (value) selectedParameters.push(value);
+
+                if (value === 'طول پا') {
+                    const opts = `<option value="20">سایز 20</option><option value="21">سایز 21</option><option value="22">سایز 22</option><option value="23">سایز 23</option>`;
+                    right.innerHTML = `<select name="sizes[${index}][right]" class="form-select" required>${opts}</select>`;
+                    left.innerHTML = `<select name="sizes[${index}][left]" class="form-select" required>${opts}</select>`;
+                } else if (value) {
+                    right.innerHTML = `<input type="text" name="sizes[${index}][right]" class="form-control" placeholder="راست" required>`;
+                    left.innerHTML = `<input type="text" name="sizes[${index}][left]" class="form-control" placeholder="چپ" required>`;
+                } else {
+                    right.innerHTML = left.innerHTML = '';
+                }
+
+                updateSelectOptions();
+            });
+        }
+
+        function updateSelectOptions() {
+            document.querySelectorAll('.parameter-select').forEach(sel => {
+                const cur = sel.value;
+                Array.from(sel.options).forEach(opt => {
+                    opt.disabled = opt.value && opt.value !== cur && selectedParameters.includes(opt.value);
                 });
             });
         }
 
-        addSizeInputListeners();
-
-        document.getElementById('add-size').addEventListener('click', function () {
-            var container = document.getElementById('size-fields');
-            var index = container.children.length;
-
-            var newFields = `
-            <div class="row mb-3 align-items-end size-entry">
-                <div class="col-md-4">
-                    <label>پارامتر:</label>
-                    <select name="sizes[${index}][parameter]" class="form-select" required>
-                        <option value="طول پا">طول پا</option>
-                        <option value="محیط مچ پا">محیط مچ پا</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label>اندازه پای راست:</label>
-                    <select name="sizes[${index}][right]" class="form-select size-input" required>
-                        <option value="20">سایز 20 (15 سانتی‌متر)</option>
-                        <option value="21">سایز 21 (16 سانتی‌متر)</option>
-                        <!-- بقیه سایزها... -->
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label>اندازه پای چپ:</label>
-                    <select name="sizes[${index}][left]" class="form-select size-input" required>
-                        <option value="20">سایز 20 (15 سانتی‌متر)</option>
-                        <option value="21">سایز 21 (16 سانتی‌متر)</option>
-                        <!-- بقیه سایزها... -->
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button type="button" class="btn btn-danger remove-size">حذف</button>
-                </div>
-            </div>
-        `;
-
-            container.insertAdjacentHTML('beforeend', newFields);
-            addSizeInputListeners();
-        });
-
-        document.addEventListener('click', function (event) {
-            if (event.target.classList.contains('remove-size')) {
-                var entry = event.target.closest('.size-entry');
-                if (entry) {
-                    entry.remove();
+        document.getElementById('size-fields').addEventListener('click', e => {
+            if (e.target.classList.contains('remove-size')) {
+                const row = e.target.closest('.size-entry');
+                const val = row.querySelector('.parameter-select').dataset.prev || '';
+                if (val && selectedParameters.includes(val)) {
+                    selectedParameters = selectedParameters.filter(p => p !== val);
+                    updateSelectOptions();
                 }
+                row.remove();
             }
         });
 
-        // وقتی کاربر یک سایز را انتخاب می‌کند
-        document.querySelectorAll('#sizeModal .list-group-item').forEach(function (item) {
-            item.addEventListener('click', function () {
-                var size = this.dataset.size;
-                var length = this.dataset.length;
-                var inputField = sizeModal.relatedInput;
-                if (inputField) {
-                    inputField.value = 'سایز ' + size + ' (طول: ' + length + ' سانتی‌متر)';
+        // —————————————— بخش "آیا دو پا متفاوت هستند؟" ——————————————
+        const checkbox = document.getElementById('id_different_designs');
+        const mainDesignP = document.querySelector('p:has(#designes-select)');
+        const mainTechnicalP = document.querySelector('p:has(#technical-notes-select)');
+
+        let separateDiv = null;
+
+        function toggleSeparateFeet() {
+            if (checkbox.checked) {
+                mainDesignP.style.display = 'none';
+                mainTechnicalP.style.display = 'none';
+
+                if (!separateDiv) {
+                    separateDiv = document.createElement('div');
+                    separateDiv.className = 'mt-4 p-4 border rounded bg-light shadow-sm';
+                    separateDiv.innerHTML = `
+                <h5 class="text-primary mb-4">تنظیمات جداگانه برای هر پا</h5>
+                <div class="row g-4">
+                    <!-- طراحی -->
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold text-success">طراحی پای راست</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary copy-design-right-to-left">← کپی از چپ</button>
+                        </div>
+                        <select name="designes_left" id="design_left" class="form-control" multiple></select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold text-warning">طراحی پای چپ</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary copy-design-left-to-right">کپی از راست →</button>
+                        </div>
+                        <select name="designes_right" id="design_right" class="form-control" multiple></select>
+                    </div>
+
+                    <!-- خلاصه پرونده -->
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold text-success">خلاصه پرونده پای چپ</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary copy-tech-right-to-left">← کپی از راست</button>
+                        </div>
+                        <select name="technical_notes_left" id="tech_left" class="form-control" multiple></select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="fw-bold text-warning">خلاصه پرونده پای راست</label>
+                            <button type="button" class="btn btn-sm btn-outline-primary copy-tech-left-to-right">کپی از چپ →</button>
+                        </div>
+                        <select name="technical_notes_right" id="tech_right" class="form-control" multiple></select>
+                    </div>
+                </div>
+            `;
+                    checkbox.closest('p').after(separateDiv);
+
+                    // فعال کردن Select2
+                    $('#design_left').select2({ tags: true, tokenSeparators: [',', ' '], placeholder: 'انتخاب یا اضافه کن', data: designs });
+                    $('#design_right').select2({ tags: true, tokenSeparators: [',', ' '], placeholder: 'انتخاب یا اضافه کن', data: designs });
+                    $('#tech_left').select2({ tags: true, tokenSeparators: [',', ' '], placeholder: 'انتخاب یا اضافه کن', data: technicalNotes });
+                    $('#tech_right').select2({ tags: true, tokenSeparators: [',', ' '], placeholder: 'انتخاب یا اضافه کن', data: technicalNotes });
+
+                    // —————————————— دکمه‌های کپی برای طراحی ——————————————
+                    separateDiv.querySelector('.copy-design-right-to-left').addEventListener('click', () => {
+                        const rightValues = $('#design_right').val() || [];
+                        $('#design_left').val(rightValues).trigger('change');
+                    });
+
+                    separateDiv.querySelector('.copy-design-left-to-right').addEventListener('click', () => {
+                        const leftValues = $('#design_left').val() || [];
+                        $('#design_right').val(leftValues).trigger('change');
+                    });
+
+                    // —————————————— دکمه‌های کپی برای خلاصه پرونده ——————————————
+                    separateDiv.querySelector('.copy-tech-right-to-left').addEventListener('click', () => {
+                        const rightValues = $('#tech_right').val() || [];
+                        $('#tech_left').val(rightValues).trigger('change');
+                    });
+
+                    separateDiv.querySelector('.copy-tech-left-to-right').addEventListener('click', () => {
+                        const leftValues = $('#tech_left').val() || [];
+                        $('#tech_right').val(leftValues).trigger('change');
+                    });
                 }
+                separateDiv.style.display = 'block';
+            } else {
+                mainDesignP.style.display = 'block';
+                mainTechnicalP.style.display = 'block';
+                if (separateDiv) separateDiv.style.display = 'none';
+            }
+        }
+
+        if (checkbox) {
+            checkbox.addEventListener('change', toggleSeparateFeet);
+            if (checkbox.checked) toggleSeparateFeet();
+        }
+
+        // —————————————— فعال کردن Select2 اصلی ——————————————
+        $(function () {
+            $('#technical-notes-select').select2({
+                tags: true,
+                tokenSeparators: [',', ' '],
+                placeholder: 'یک یا چند گزینه انتخاب کنید',
+                data: technicalNotes
+            });
+
+            $('#designes-select').select2({
+                tags: true,
+                tokenSeparators: [',', ' '],
+                placeholder: 'یک یا چند گزینه انتخاب کنید',
+                data: designs
             });
         });
-    });
-</script>
-<script>
-    
-    document.addEventListener('DOMContentLoaded', function () {
-        var checkbox = document.getElementById('id_different_designs'); // جایگزین با ID واقعی چک‌باکس
-        var listItem = document.querySelectorAll('div.container:nth-child(2) > div:nth-child(1) > form:nth-child(2) > p:nth-child(8) > span:nth-child(3)');
-        console.log(lidstItem);
-
-        checkbox.addEventListener('change', function () {
-            if (checkbox.checked) {
-                if (listItem) {
-                    listItem.style.display = 'none';
-                }
-            }
-        });
-    });
-
-
-
-    $(document).ready(function () {
-
-        $('#technical-notes-select').select2({
-            tags: true,  // اجازه اضافه کردن تگ‌های جدید
-            tokenSeparators: [',', ' '],
-            placeholder: 'یک یا چند گزینه انتخاب کنید',
-            data: [
-                { id: 'Flexible-FlatFoot', text: 'Flexible FlatFoot' },
-                { id: 'Pes-Cavus', text: 'Pes Cavus' },
-                { id: 'Hyper-Pronated-Foot', text: 'Hyper Pronated Foot' },
-                { id: 'Hyper-Supinated-Foot', text: 'Hyper Supinated Foot' },
-                { id: 'Heel-Pain', text: 'Heel Pain' },
-                { id: 'Metatarsalgia', text: 'Metatarsalgia' },
-                { id: 'Plantar-Fasciitis', text: 'Plantar Fasciitis' },
-                { id: 'Achilles-Thitness', text: 'Achilles Thitness' },
-                { id: 'Bunions', text: 'Bunions' },
-                { id: 'Achilles-Tendinitis', text: 'Achilles Tendinitis' },
-                { id: 'Arthritis', text: 'Arthritis' },
-                { id: 'Neuroma', text: 'Neuroma' },
-                { id: 'Back-Pain', text: 'Back Pain' },
-                { id: 'Knee-Pain', text: 'Knee Pain' },
-                { id: 'Hip-Pain', text: 'Hip Pain' },
-                { id: 'Diabetic-Foot', text: 'Diabetic Foot' },
-
-            ]
-        });
-
-        $('#designes-select').select2({
-            tags: true,  // اجازه اضافه کردن تگ‌های جدید
-            tokenSeparators: [',', ' '],
-            placeholder: 'یک یا چند گزینه انتخاب کنید',
-            data: [
-                { id: 'External-Heel-medial-wedge', text: 'External Heel medial wedge' },
-                { id: 'External-Heel-lateral-wedge', text: 'External Heel lateral wedge' },
-                { id: 'External-Heel+Mid-medial-wedge', text: 'External Heel+Mid medial wedge' },
-                { id: 'External-Heel+Mid-lateral-wedge', text: 'External Heel+Mid lateral wedge' },
-                { id: 'External-Forefoot-medial-wedge', text: 'External Forefoot medial wedge' },
-                { id: 'External-Forefoot-lateral-wedge', text: 'External Forefoot lateral wedge' },
-                { id: 'Internal-Heel-medial-wedge', text: 'Internal Heel medial wedge' },
-                { id: 'Internal-Heel-lateral-wedge', text: 'Internal Heel lateral wedge' },
-                { id: 'Internal-Heel+Mid-medial-wedge', text: 'Internal Heel+Mid medial wedge' },
-                { id: 'Internal-Heel+Mid-lateral-wedge', text: 'Internal Heel+Mid lateral wedge' },
-                { id: 'Internal-Forefoot-medial-wedge', text: 'Internal Forefoot medial wedge' },
-                { id: 'Internal-Forefoot-lateral-wedge', text: 'Internal Forefoot lateral wedge' },
-                { id: 'Soft-Cover', text: 'Soft Cover' },
-                { id: 'Soft-Heel', text: 'Soft Heel' },
-                { id: 'Metatarsal-pad', text: 'Metatarsal pad' },
-                { id: 'Full-insole', text: 'Full insole' },
-                { id: 'Half-insole', text: 'Half insole' },
-
-
-            ]
-        });
-
-
-
     });
 </script>
 {% endblock %}
