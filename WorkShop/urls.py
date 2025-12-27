@@ -22,6 +22,9 @@ urlpatterns = [
         name='delivered-archive'
     ),
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('workshop/<int:order_id>/delete/', views.workshop_delete, name='workshop-delete'),
-
+    path('workshop/<int:order_id>/delete/',
+         views.workshop_delete, name='workshop-delete'),
+    path('reception/order/<int:order_id>/',
+         views.reception_order_detail, name='reception-order-detail'),
+    path('mark-notification-read/', views.mark_notification_read, name='mark-notification-read'),
 ]

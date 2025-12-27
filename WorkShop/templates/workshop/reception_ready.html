@@ -1,56 +1,155 @@
 {% extends 'workshop/base.html' %}
+{% load jformat %}
 
-{% block title %}کارهای آماده{% endblock %}
+{% block title %}کارهای آماده تحویل{% endblock %}
 
 {% block content %}
-<div class="card shadow">
-    <div class="card-header bg-primary text-white">
-        لیست کارهای آماده تحویل
+<div class="card shadow-lg border-0">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">لیست کارهای آماده تحویل (تعداد کل: {{ page_obj.paginator.count }})</h5>
+        <a href="{% url 'delivered-archive' %}" class="btn btn-light btn-sm">مشاهده تحویل‌شده‌ها</a>
     </div>
 
-    <div class="card-body">
-        <table class="table table-bordered table-hover text-center align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>بیمار</th>
-                    <th>تلفن</th>
-                    <th>وسیله</th>
-                    <th>سمت</th>
-                    <th>زمان آماده شدن</th>
-                    <th>آماده‌کننده</th>
-                    <th>توضیحات</th>
-                    <th>عملیات</th>
-                </tr>
-            </thead>
+    <div class="card-body p-4">
+        <!-- فرم فیلتر و جستجو -->
+        <form method="get" class="mb-4" id="filter-form">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">جستجو (نام بیمار یا شماره پرونده):</label>
+                    <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="نام یا شماره پرونده...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">اولویت:</label>
+                    <select name="priority" class="form-select">
+                        <option value="">همه</option>
+                        <option value="urgent" {% if priority == 'urgent' %}selected{% endif %}>اورژانسی</option>
+                        <option value="normal" {% if priority == 'normal' %}selected{% endif %}>عادی</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">از تاریخ آماده (شمسی):</label>
+                    <input type="text" id="start_date_shamsi" name="start_date" value="{{ start_date }}" class="form-control" placeholder="YYYY/MM/DD" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">تا تاریخ آماده (شمسی):</label>
+                    <input type="text" id="end_date_shamsi" name="end_date" value="{{ end_date }}" class="form-control" placeholder="YYYY/MM/DD" readonly>
+                </div>
+            </div>
 
-            <tbody>
-                {% for order in orders %}
-                <tr class="status-{{ order.status }}">
-                    <td>{{ order.patient_name }}</td>
-                    <td>{{ order.phone }}</td>
-                    <td>{{ order.get_device_type_display }}</td>
-                    <td>{{ order.get_side_display }}</td>
-                    <td>{{ order.ready_at|date:"Y-m-d H:i" }}</td>
-                    <td>{{ order.ready_by.username }}</td>
-                    <td>{{ order.workshop_notes }}</td>
-                    <td>
-                        <form method="post" action="{% url 'deliver-order' order.id %}">
-                            {% csrf_token %}
-                            <button class="btn btn-success btn-sm"
-                                onclick="return confirm('آیا تحویل به بیمار انجام شد؟');">
-                                تحویل شد
-                            </button>
-                        </form>
-                    </td>
+            <div class="row g-3 mt-3">
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">اعمال فیلتر</button>
+                    <a href="{% url 'reception-ready' %}" class="btn btn-outline-secondary">پاک کردن فیلترها</a>
+                </div>
+                <div class="col-md-8 d-flex justify-content-end align-items-end">
+                    <label class="me-3 mb-0 fw-bold">رکورد در صفحه:</label>
+                    <select id="per_page_select" class="form-select form-select-sm w-auto">
+                        <option value="5" {% if records_per_page == 5 %}selected{% endif %}>5</option>
+                        <option value="10" {% if records_per_page == 10 %}selected{% endif %}>10</option>
+                        <option value="20" {% if records_per_page == 20 %}selected{% endif %}>20</option>
+                        <option value="50" {% if records_per_page == 50 %}selected{% endif %}>50</option>
+                        <option value="100" {% if records_per_page == 100 %}selected{% endif %}>100</option>
+                    </select>
+                </div>
+            </div>
+        </form>
 
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8">کاری آماده نیست</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- جدول سفارشات آماده -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover text-center align-middle table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>بیمار</th>
+                        <th>شماره پرونده</th>
+                        <th>وسیله</th>
+                        <th>زمان آماده شدن</th>
+                        <th>آخرین وضعیت پیگیری</th>
+                        <th>عملیات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in page_obj %}
+                    <tr class="{% if order.priority == 'urgent' %}table-danger{% endif %}">
+                        <td>{{ order.patient_name }}</td>
+                        <td>{{ order.case_number|default:"—" }}</td>
+                        <td>{{ order.get_device_type_display }}</td>
+                        <td>{{ order.ready_at|jformat:"%Y/%m/%d %H:%M" }}</td>
+                        <td>
+                            {% with last_status=order.status_history.last %}
+                                {% if last_status %}
+                                    <span class="badge bg-{% if last_status.status == 'ready' %}success{% elif last_status.status == 'in_progress' %}warning text-dark{% elif last_status.status == 'delivered' %}secondary{% else %}primary{% endif %}">
+                                        {{ last_status.get_status_display }} ({{ last_status.changed_at|jformat:"%Y/%m/%d %H:%M" }})
+                                    </span>
+                                {% else %}
+                                    <em class="text-muted">بدون پیگیری</em>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td>
+                            <!-- دکمه جدید "جزئیات" برای پذیرش -->
+                            <a href="{% url 'reception-order-detail' order.id %}" class="btn btn-info btn-sm me-1">جزئیات</a>
+                            
+                            <form method="post" action="{% url 'deliver-order' order.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm me-1" onclick="return confirm('آیا تحویل به بیمار انجام شد؟');">تحویل</button>
+                            </form>
+                            
+                            <form method="post" action="{% url 'workshop-delete' order.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('آیا مطمئن هستید که می‌خواهید این سفارش را لغو کنید؟');">لغو</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <em class="text-muted">هیچ سفارشی آماده نیست.</em>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- صفحه‌بندی (همون قبلی با حفظ فیلترها) -->
+        <div class="d-flex justify-content-center mt-4">
+            <nav aria-label="Page navigation">
+                <ul class="pagination">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page=1{{ current_query_string }}">&laquo; اول</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{{ current_query_string }}">&laquo;</a></li>
+                    {% endif %}
+
+                    <li class="page-item disabled"><span class="page-link">صفحه {{ page_obj.number }} از {{ page_obj.paginator.num_pages }}</span></li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{{ current_query_string }}">&raquo;</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{{ current_query_string }}">آخر &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
     </div>
 </div>
+
+<!-- اسکریپت‌ها (تقویم و تعداد رکورد) -->
+<script>
+    // تعداد رکورد در صفحه با حفظ فیلترها
+    document.getElementById('per_page_select').addEventListener('change', function () {
+        const form = document.getElementById('filter-form');
+        const formData = new FormData(form);
+        let query = '?';
+        for (let [key, value] of formData.entries()) {
+            if (value) {
+                query += `${key}=${encodeURIComponent(value)}&`;
+            }
+        }
+        query += `per_page=${this.value}`;
+        window.location.href = query;
+    });
+
+    // kamaDatepicker برای تاریخ‌های شمسی
+    kamaDatepicker('start_date_shamsi', { placeholder: 'از تاریخ', markToday: true });
+    kamaDatepicker('end_date_shamsi', { placeholder: 'تا تاریخ', markToday: true });
+</script>
 {% endblock %}

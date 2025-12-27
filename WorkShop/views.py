@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from urllib3 import request
-from .models import Order, OrderStatusHistory, Measurement
+from .models import Order, OrderStatusHistory, Measurement, Notification
 from .forms import OrderCreateForm
 from .decorators import group_required
 from django.contrib.auth import authenticate, login, logout
@@ -10,32 +10,92 @@ from .models import Order
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.contrib.auth.models import User
+from django.urls import reverse
+from jdatetime import datetime as jdatetime
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt  # یا از csrf_protect استفاده کن و توکن رو چک کن
+@login_required
+def mark_notification_read(request):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        notification_id = data.get('id')
+        try:
+            notification = request.user.notifications.get(id=notification_id)
+            notification.is_read = True
+            notification.save()
+            return JsonResponse({'success': True})
+        except:
+            return JsonResponse({'success': False})
+    return JsonResponse({'success': False})
+
+def shamsi_to_gregorian(shamsi_str):
+    """
+    تبدیل تاریخ شمسی به میلادی
+    ورودی: '1404/10/05' یا '1404-10-05'
+    خروجی: datetime.date میلادی یا None اگر نامعتبر باشه
+    """
+    if not shamsi_str:
+        return None
+    try:
+        # جایگزینی اسلش با خط تیره برای یکسان‌سازی
+        shamsi_str = shamsi_str.replace('/', '-')
+        year, month, day = map(int, shamsi_str.split('-'))
+        jalali_date = jdatetime(year, month, day)
+        return jalali_date.togregorian()  # تبدیل به میلادی
+    except (ValueError, TypeError):
+        return None
+
+
+def create_notification(user, message, url=None):
+    Notification.objects.create(
+        user=user,
+        message=message,
+        url=url,
+    )
 
 
 @login_required
 def dashboard(request):
     user = request.user
-
-    context = {}
-
-    # داشبورد پذیرش
+    context = {
+        'user_name': user.get_full_name() or user.username,
+    }
+    now = timezone.now().date()
     if user.groups.filter(name='Reception').exists():
         context['role'] = 'reception'
-        context['new_orders_count'] = Order.objects.filter(
-            status='new').count()
         context['ready_orders_count'] = Order.objects.filter(
             status='ready').count()
+        context['today_orders_count'] = Order.objects.filter(
+            created_at__date=timezone.now().date()).count()
+        context['today_delivered_count'] = Order.objects.filter(
+            delivered_at__date=timezone.now().date()).count()
 
-    # داشبورد کارگاه
+        # تعداد اورژانسی‌های آماده برای پذیرش
+        context['urgent_ready_count'] = Order.objects.filter(
+            status='ready', priority='urgent').count()
+
     elif user.groups.filter(name='Workshop').exists():
         context['role'] = 'workshop'
         context['in_progress_count'] = Order.objects.filter(
             status='in_progress').count()
         context['my_ready_count'] = Order.objects.filter(
-            status='ready',
-            ready_by=user
-        ).count()
+            status='ready', ready_by=user).count()
 
+        # تعداد اورژانسی‌های در حال کار یا آماده برای کارگاه
+        context['urgent_in_workshop_count'] = Order.objects.filter(
+            priority='urgent',
+            status__in=['in_progress', 'ready']
+        ).count()
+    else:
+        context['role'] = 'none'
+# —————————————— محاسبه تعداد اعلان‌های خوانده‌نشده ——————————————
+    unread_count = user.notifications.filter(is_read=False).count()
+    context['unread_notifications_count'] = unread_count
+    context['notifications'] = user.notifications.all().order_by('-created_at')[:10]
     return render(request, 'workshop/dashboard.html', context)
 
 
@@ -90,7 +150,13 @@ def reception_create_order(request):
                 order.technical_notes = ', '.join(technical_notes)
 
             order.save()
-
+            
+            # اعلان برای کارگاه
+            create_notification(
+                user=User.objects.filter(groups__name='Workshop').first(),  # یا گروه خاص
+                message=f"سفارش جدید برای {order.patient_name} ثبت شد",
+                url=reverse('workshop-update', args=[order.id])
+            )
             # —————————————— ذخیره اندازه‌ها (همون قبلی، بدون تغییر) ——————————————
             index = 0
             while f'sizes[{index}][parameter]' in request.POST:
@@ -273,11 +339,73 @@ def custom_logout(request):
 
 @group_required('Reception')
 def reception_ready_orders(request):
-    orders = Order.objects.filter(status='ready').order_by('-ready_at')
+    # شروع با سفارشات آماده
+    orders = Order.objects.filter(status='ready')
 
-    return render(request, 'workshop/reception_ready.html', {
-        'orders': orders
-    })
+    # —————————————— سورت: اورژانسی اول، سپس تاریخ جدیدترین ——————————————
+    # urgent اول (اگر priority='urgent' باشه و فیلد CharField باشه، 'urgent' > 'normal' در مرتب‌سازی)
+    orders = orders.order_by('-priority', '-ready_at')
+
+    # —————————————— فیلتر جستجو (نام بیمار یا شماره پرونده) ——————————————
+    search = request.GET.get('search', '').strip()
+    if search:
+        orders = orders.filter(
+            Q(patient_name__icontains=search) |
+            Q(case_number__icontains=search)
+        )
+
+    # —————————————— فیلتر اولویت ——————————————
+    priority = request.GET.get('priority')
+    if priority in ['urgent', 'normal']:
+        orders = orders.filter(priority=priority)
+
+    # —————————————— فیلتر تاریخ آماده شدن (شمسی به میلادی) ——————————————
+    start_date_shamsi = request.GET.get('start_date')
+    end_date_shamsi = request.GET.get('end_date')
+
+    start_greg = shamsi_to_gregorian(start_date_shamsi)
+    end_greg = shamsi_to_gregorian(end_date_shamsi)
+
+    if start_greg:
+        orders = orders.filter(ready_at__date__gte=start_greg)
+
+    if end_greg:
+        orders = orders.filter(ready_at__date__lte=end_greg)
+
+    # —————————————— تعداد رکورد در صفحه ——————————————
+    records_per_page = request.GET.get('per_page')
+    if records_per_page:
+        try:
+            records_per_page = int(records_per_page)
+            if records_per_page not in [5, 10, 20, 50, 100]:
+                records_per_page = 15
+        except (ValueError, TypeError):
+            records_per_page = 15
+    else:
+        records_per_page = 15
+
+    # —————————————— صفحه‌بندی ——————————————
+    paginator = Paginator(orders, records_per_page)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # —————————————— ساخت query string برای حفظ فیلترها در صفحه‌بندی ——————————————
+    query_params = request.GET.copy()
+    if 'page' in query_params:
+        del query_params['page']
+    current_query_string = '&' + query_params.urlencode() if query_params else ''
+
+    context = {
+        'page_obj': page_obj,
+        'search': search,
+        'priority': priority,
+        'start_date': start_date_shamsi,  # برای نمایش در input شمسی
+        'end_date': end_date_shamsi,
+        'records_per_page': records_per_page,
+        'current_query_string': current_query_string,  # برای صفحه‌بندی
+    }
+
+    return render(request, 'workshop/reception_ready.html', context)
 
 
 @group_required('Reception')
@@ -343,3 +471,62 @@ def workshop_delete(request, order_id):
 def examination_order_list(request):
     orders = Order.objects.filter(send_to='examination')
     return render(request, 'examination_order_list.html', {'orders': orders})
+
+
+@group_required('Reception')
+def reception_order_detail(request, order_id):
+    order = get_object_or_404(Order, id=order_id)
+    measurements = order.measurements.all()
+
+    # تاریخچه سفارشات قبلی بیمار
+    patient_orders = Order.objects.filter(case_number=order.case_number).exclude(
+        id=order.id).order_by('-created_at')
+
+    # آماده‌سازی لیست‌ها برای نمایش
+    if order.different_designs:
+        technical_notes_left = order.technical_notes_left.split(
+            ', ') if order.technical_notes_left else []
+        technical_notes_right = order.technical_notes_right.split(
+            ', ') if order.technical_notes_right else []
+        technical_notes = None
+        designes_left = order.designes_left.split(
+            ', ') if order.designes_left else []
+        designes_right = order.designes_right.split(
+            ', ') if order.designes_right else []
+        designes = None
+    else:
+        technical_notes = order.technical_notes.split(
+            ', ') if order.technical_notes else []
+        technical_notes_left = technical_notes_right = None
+        designes = order.designes.split(', ') if order.designes else []
+        designes_left = designes_right = None
+
+    if request.method == 'POST':
+        # عملیات پذیرش (مثلاً تغییر وضعیت اولیه یا اضافه کردن یادداشت)
+        new_status = request.POST.get('status')
+        if new_status and new_status in ['registered', 'ordered', 'canceled']:
+            if new_status != order.status:
+                OrderStatusHistory.objects.create(
+                    order=order,
+                    status=new_status,
+                    changed_by=request.user,
+                    notes=request.POST.get('reception_note', '')
+                )
+                order.status = new_status
+                order.save()
+                messages.success(request, 'وضعیت سفارش به‌روزرسانی شد.')
+        return redirect('reception-order-detail', order_id=order.id)
+
+    context = {
+        'order': order,
+        'measurements': measurements,
+        'patient_orders': patient_orders,
+        'technical_notes': technical_notes,
+        'technical_notes_left': technical_notes_left,
+        'technical_notes_right': technical_notes_right,
+        'designes': designes,
+        'designes_left': designes_left,
+        'designes_right': designes_right,
+    }
+
+    return render(request, 'workshop/reception_order_detail.html', context)

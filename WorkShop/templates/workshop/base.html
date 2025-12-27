@@ -11,7 +11,8 @@
     <!-- CSS for Select2 -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
+    <link rel="stylesheet" href="https://unpkg.com/kamadatepicker/dist/kamadatepicker.min.css">
+    <script src="https://unpkg.com/kamadatepicker/dist/kamadatepicker.min.js"></script>
     <!-- JS for Select2 -->
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
@@ -20,6 +21,18 @@
     <!-- اضافه کردن CSS و JS مربوط به Select2 -->
 
     <style>
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
         @keyframes blink {
             50% {
                 opacity: 0.5;

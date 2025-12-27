@@ -84,12 +84,12 @@ class Order(models.Model):
 
     different_designs = models.BooleanField(
         default=False, verbose_name="آیا دو پا متفاوت هستند؟")
-    
+
     different_technical_notes = models.BooleanField(
         default=False,
         verbose_name="آیا خلاصه پرونده برای پای چپ و راست متفاوت است؟"
     )
-    
+
     designes_left = models.TextField(blank=True, null=True)
     designes_right = models.TextField(blank=True, null=True)
     technical_notes_left = models.TextField(blank=True, null=True)
@@ -135,8 +135,10 @@ class OrderStatusHistory(models.Model):
     changed_at = models.DateTimeField(auto_now_add=True)
     changed_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True)
-    notes = models.TextField(blank=True, verbose_name="توضیحات کارگاه")  # اضافه شد
-    
+    notes = models.TextField(
+        blank=True, verbose_name="توضیحات کارگاه")  # اضافه شد
+
+
 class Measurement(models.Model):
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name='measurements')
@@ -145,3 +147,18 @@ class Measurement(models.Model):
         max_length=50, verbose_name="اندازه پای راست")
     left_foot_size = models.CharField(
         max_length=50, verbose_name="اندازه پای چپ")
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField()
+    url = models.URLField(blank=True, null=True)  # لینک به سفارش یا صفحه
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.message[:50]

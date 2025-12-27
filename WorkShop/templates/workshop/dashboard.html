@@ -1,75 +1,298 @@
 {% extends 'workshop/base.html' %}
-
-{% block title %}داشبورد{% endblock %}
+{% load jformat %}
+{% block title %}داشبورد اصلی{% endblock %}
 
 {% block content %}
-
-<h4 class="mb-4">داشبورد {{ request.user.username }}</h4>
-
-{% if role == 'reception' %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-center shadow">
-            <div class="card-body">
-                <h6>ثبت سفارش جدید</h6>
-                <a href="{% url 'order-create' %}" class="btn btn-primary mt-2">
-                    ثبت سفارش
-                </a>
-            </div>
+<!-- هشدار ثابت اورژانسی — کاملاً درست و همیشه دیده می‌شه -->
+{% if role == 'reception' and urgent_ready_count > 0 %}
+<div class="position-fixed inset-0 d-flex align-items-start justify-content-center pt-5 px-3"
+    style="z-index: 1080; pointer-events: none;">
+    <div class="alert alert-danger shadow-lg rounded-4 py-3 px-5 d-flex align-items-center gap-4"
+        style="pointer-events: all; max-width: 90%; animation: slideDown 0.6s ease-out;">
+        <i class="fas fa-exclamation-triangle fa-2x"></i>
+        <div>
+            <strong class="fs-5">هشدار: {{ urgent_ready_count }} سفارش اورژانسی آماده تحویل است!</strong>
         </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card text-center shadow">
-            <div class="card-body">
-                <h6>کارهای آماده</h6>
-                <p class="fs-4">{{ ready_orders_count }}</p>
-                <a href="{% url 'reception-ready' %}" class="btn btn-success">
-                    مشاهده
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card text-center shadow">
-            <div class="card-body">
-                <h6>آرشیو تحویل‌شده</h6>
-                <a href="{% url 'delivered-archive' %}" class="btn btn-secondary">
-                    آرشیو
-                </a>
-            </div>
-        </div>
+        <a href="{% url 'reception-ready' %}?priority=urgent" class="btn btn-outline-light btn-sm rounded-pill px-4">
+            مشاهده فوری
+        </a>
+        <button type="button" class="btn-close btn-close-white ms-3" aria-label="بستن"
+            onclick="this.closest('.position-fixed').style.display='none';"></button>
     </div>
 </div>
 {% endif %}
 
-{% if role == 'workshop' %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card text-center shadow">
-            <div class="card-body">
-                <h6>سفارشات در حال ساخت</h6>
-                <p class="fs-4">{{ in_progress_count }}</p>
-                <a href="{% url 'workshop-list' %}" class="btn btn-warning">
-                    مشاهده
-                </a>
-            </div>
+{% if role == 'workshop' and urgent_in_workshop_count > 0 %}
+<div class="position-fixed inset-0 d-flex align-items-start justify-content-center pt-5 px-3"
+    style="z-index: 1080; pointer-events: none;">
+    <div class="alert alert-danger shadow-lg rounded-4 py-3 px-5 d-flex align-items-center gap-4"
+        style="pointer-events: all; max-width: 90%; animation: slideDown 0.6s ease-out;">
+        <i class="fas fa-exclamation-triangle fa-2x"></i>
+        <div>
+            <strong class="fs-5">هشدار: {{ urgent_in_workshop_count }} سفارش اورژانسی در کارگاه!</strong>
         </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card text-center shadow">
-            <div class="card-body">
-                <h6>کارهای آماده‌شده توسط من</h6>
-                <p class="fs-4">{{ my_ready_count }}</p>
-                <a href="{% url 'workshop-list' %}" class="btn btn-success">
-                    لیست کارگاه
-                </a>
-            </div>
-        </div>
+        <a href="{% url 'workshop-list' %}?priority=urgent" class="btn btn-outline-light btn-sm rounded-pill px-4">
+            مشاهده فوری
+        </a>
+        <button type="button" class="btn-close btn-close-white ms-3" aria-label="بستن"
+            onclick="this.closest('.position-fixed').style.display='none';"></button>
     </div>
 </div>
 {% endif %}
+<!-- سایدبار اعلان‌ها — موقعیت بهتر و زیبا -->
+<div class="position-fixed bottom-0 start-0 mb-4 ms-4" style="z-index: 1050;">
+    <!-- دکمه زنگوله (همیشه دیده می‌شه) -->
+    <button class="btn btn-primary rounded-circle shadow-lg p-3 position-relative" onclick="toggleNotifications()"
+        id="notification-bell">
+        <i class="fas fa-bell fa-lg"></i>
+        {% if unread_notifications_count > 0 %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger fs-6">
+            {{ unread_notifications_count }}
+            <span class="visually-hidden">اعلان جدید</span>
+        </span>
+        {% endif %}
+    </button>
+</div>
 
+<!-- سایدبار اعلان‌ها (بازشو از پایین) -->
+<div class="position-fixed bottom-0 start-0 end-0 bg-white shadow-lg rounded-top" id="notification-panel"
+    style="height: 0; overflow: hidden; transition: height 0.4s ease; z-index: 1040;">
+    <div class="d-flex flex-column h-100">
+        <div
+            class="p-3 border-bottom d-flex justify-content-between align-items-center bg-primary text-white rounded-top">
+            <h5 class="mb-0"><i class="fas fa-bell me-2"></i> اعلان‌ها</h5>
+            <button class="btn btn-sm btn-outline-light" onclick="toggleNotifications()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="flex-grow-1 overflow-auto p-4" style="max-height: 70vh;">
+            {% if unread_notifications_count > 0 %}
+            <div class="alert alert-info text-center py-2 mb-3 rounded">
+                <strong>{{ unread_notifications_count }} اعلان جدید</strong>
+            </div>
+            {% endif %}
+
+            {% for notification in notifications %}
+            <div class="card mb-3 border-start border-primary border-4 {% if not notification.is_read %}bg-light{% endif %}"
+                onclick="markAsRead({{ notification.id }})" style="cursor: pointer;">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <p class="mb-1 {% if not notification.is_read %}fw-bold{% endif %}">
+                                {{ notification.message }}
+                            </p>
+                            <small class="text-muted">
+                                {{ notification.created_at|jformat:"%Y/%m/%d ساعت %H:%M" }}
+                            </small>
+                        </div>
+                        {% if not notification.is_read %}
+                        <span class="badge bg-danger rounded-pill ms-2">جدید</span>
+                        {% endif %}
+                    </div>
+                    {% if notification.url %}
+                    <a href="{{ notification.url }}" class="btn btn-sm btn-outline-primary mt-3"
+                        onclick="event.stopPropagation(); markAsRead({{ notification.id }});">
+                        مشاهده جزئیات
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-bell-slash fa-4x mb-3 opacity-50"></i>
+                <p>هیچ اعلانی ندارید</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- اسکریپت کنترل سایدبار و AJAX -->
+
+
+
+<div class="container mt-5">
+    <!-- خوش‌آمدگویی -->
+    <div class="text-center mb-5">
+        <h1 class="display-6 text-primary mb-3">
+            {{ user_name }} خوش آمدید 👋
+        </h1>
+        <hr class="w-50 mx-auto">
+    </div>
+
+    {% if role == 'reception' %}
+    <div class="row g-4 mb-5">
+        <!-- ثبت سفارش جدید -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center shadow-sm border-0 hover-shadow d-flex flex-column">
+                <div class="card-body p-5 d-flex flex-column justify-content-between">
+                    <div>
+                        <i class="fas fa-plus-circle fa-4x text-primary mb-4"></i>
+                        <h4 class="card-title">ثبت سفارش جدید</h4>
+                        <p class="text-muted mb-4">سفارش جدید برای بیمار ثبت کنید</p>
+                    </div>
+                    <a href="{% url 'order-create' %}" class="btn btn-primary btn-lg mt-auto">
+                        <i class="fas fa-file-medical me-2"></i> ثبت سفارش
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- کارهای آماده تحویل -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center shadow-sm border-0 hover-shadow d-flex flex-column">
+                <div class="card-body p-5 d-flex flex-column justify-content-between">
+                    <div>
+                        <i class="fas fa-bell fa-4x text-success mb-4"></i>
+                        <h4 class="card-title">کارهای آماده تحویل</h4>
+                        <div class="mb-4">
+                            <span class="display-4 fw-bold text-success">{{ ready_orders_count|default:"0" }}</span>
+                            <p class="text-muted mt-2">مورد آماده</p>
+                        </div>
+                    </div>
+                    <a href="{% url 'reception-ready' %}" class="btn btn-success btn-lg mt-auto">
+                        <i class="fas fa-check-circle me-2"></i> مشاهده لیست
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- آرشیو -->
+        <div class="col-md-4">
+            <div class="card h-100 text-center shadow-sm border-0 hover-shadow d-flex flex-column">
+                <div class="card-body p-5 d-flex flex-column justify-content-between">
+                    <div>
+                        <i class="fas fa-archive fa-4x text-secondary mb-4"></i>
+                        <h4 class="card-title">آرشیو تحویل‌شده‌ها</h4>
+                        <p class="text-muted mb-4">سفارشات تحویل‌شده</p>
+                    </div>
+                    <a href="{% url 'delivered-archive' %}" class="btn btn-secondary btn-lg mt-auto">
+                        <i class="fas fa-box-open me-2"></i> مشاهده آرشیو
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- آمار امروز -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm text-center">
+                <div class="card-body p-5">
+                    <i class="fas fa-calendar-day fa-3x text-info mb-3"></i>
+                    <h5>سفارشات ثبت‌شده امروز</h5>
+                    <p class="display-5 text-info fw-bold">{{ today_orders_count|default:"0" }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm text-center">
+                <div class="card-body p-5">
+                    <i class="fas fa-truck-loading fa-3x text-success mb-3"></i>
+                    <h5>تحویل‌شده امروز</h5>
+                    <p class="display-5 text-success fw-bold">{{ today_delivered_count|default:"0" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% elif role == 'workshop' %}
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 text-center shadow-sm border-0 hover-shadow d-flex flex-column">
+                <div class="card-body p-5 d-flex flex-column justify-content-between">
+                    <div>
+                        <i class="fas fa-tools fa-4x text-warning mb-4"></i>
+                        <h4>سفارشات در حال ساخت</h4>
+                        <p class="display-4 fw-bold text-warning">{{ in_progress_count|default:"0" }}</p>
+                    </div>
+                    <a href="{% url 'workshop-list' %}" class="btn btn-warning btn-lg mt-auto">
+                        مشاهده لیست
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100 text-center shadow-sm border-0 hover-shadow d-flex flex-column">
+                <div class="card-body p-5 d-flex flex-column justify-content-between">
+                    <div>
+                        <i class="fas fa-check-double fa-4x text-success mb-4"></i>
+                        <h4>کارهای آماده‌شده توسط من</h4>
+                        <p class="display-4 fw-bold text-success">{{ my_ready_count|default:"0" }}</p>
+                    </div>
+                    <a href="{% url 'workshop-list' %}?status=ready" class="btn btn-success btn-lg mt-auto">
+                        مشاهده
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning text-center p-5">
+        <h4>نقش کاربری شما تعریف نشده است</h4>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .hover-shadow:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+    }
+</style>
+<!-- اسکریپت برای باز/بسته کردن سایدبار -->
+<script>
+    function toggleSidebar() {
+        const sidebar = document.getElementById('notification-sidebar');
+        if (sidebar.style.width === '0px' || sidebar.style.width === '') {
+            sidebar.style.width = '350px';
+        } else {
+            sidebar.style.width = '0';
+        }
+    }
+    function toggleNotifications() {
+        const panel = document.getElementById('notification-panel');
+        const bell = document.getElementById('notification-bell');
+
+        if (panel.style.height === '0px' || panel.style.height === '') {
+            panel.style.height = '500px';  // ارتفاع دلخواه
+            bell.classList.add('text-warning');
+        } else {
+            panel.style.height = '0';
+            bell.classList.remove('text-warning');
+        }
+    }
+
+    function markAsRead(notificationId) {
+        fetch("{% url 'mark-notification-read' %}", {  // باید این URL رو در urls.py تعریف کنی
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ 'id': notificationId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();  // ساده‌ترین راه: رفرش صفحه تا تعداد کم بشه
+                    // یا می‌تونی DOM رو آپدیت کنی بدون رفرش (پیچیده‌تر)
+                }
+            });
+    }
+</script>
 {% endblock %}

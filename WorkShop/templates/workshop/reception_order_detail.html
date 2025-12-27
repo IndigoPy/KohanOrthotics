@@ -1,0 +1,306 @@
+{% extends 'workshop/base.html' %}
+{% load jformat %}
+
+{% block title %}جزئیات سفارش - پذیرش{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- بخش اصلی محتوا (چپ/وسط) -->
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="text-primary mb-0">
+                    سفارش #{{ order.id }} — {{ order.patient_name }}
+                    <small class="text-muted">(شماره پرونده: {{ order.case_number|default:"—" }})</small>
+                </h3>
+                {% if order.priority == 'urgent' %}
+                    <span class="badge bg-danger fs-6 px-3 py-2">اورژانسی</span>
+                {% endif %}
+            </div>
+
+            <!-- اطلاعات سریع بیمار -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <strong>اطلاعات بیمار</strong>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>نام بیمار:</strong> {{ order.patient_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>شماره پرونده:</strong> {{ order.case_number|default:"—" }}
+                        </div>
+                        {% if order.phone %}
+                        <div class="col-md-6 mb-3">
+                            <strong>تلفن:</strong> 
+                            <a href="tel:{{ order.phone }}" class="text-decoration-none">{{ order.phone }}</a>
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex gap-2 align-items-center">
+                            <a href="tel:{{ order.phone }}" class="btn btn-success btn-sm"><i class="fas fa-phone me-1"></i> تماس</a>
+                            <a href="sms:{{ order.phone }}" class="btn btn-info btn-sm text-white"><i class="fas fa-sms me-1"></i> پیامک</a>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-6 mb-3">
+                            <strong>نوع ارتوز:</strong> {{ order.get_device_type_display }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>اندام:</strong> {{ order.get_side_display }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- تاریخچه سفارشات قبلی بیمار -->
+            {% if patient_orders %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <strong>تاریخچه سفارشات قبلی این بیمار</strong>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>شماره</th>
+                                    <th>تاریخ ثبت</th>
+                                    <th>وسیله</th>
+                                    <th>وضعیت</th>
+                                    <th>جزئیات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prev_order in patient_orders %}
+                                <tr>
+                                    <td><strong>#{{ prev_order.id }}</strong></td>
+                                    <td>{{ prev_order.created_at|jformat:"%Y/%m/%d" }}</td>
+                                    <td>{{ prev_order.get_device_type_display }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if prev_order.status == 'ready' %}success{% elif prev_order.status == 'in_progress' %}warning{% elif prev_order.status == 'delivered' %}secondary{% else %}primary{% endif %}">
+                                            {{ prev_order.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'reception-order-detail' prev_order.id %}" class="btn btn-sm btn-outline-primary">مشاهده</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-4">
+                این اولین سفارش برای شماره پرونده {{ order.case_number }} است.
+            </div>
+            {% endif %}
+
+            <!-- خلاصه پرونده -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <strong>خلاصه پرونده</strong>
+                </div>
+                <div class="card-body">
+                    {% if order.different_designs %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong class="text-success">پای چپ:</strong><br>
+                                {% if technical_notes_left %}
+                                    {% for note in technical_notes_left %}
+                                        <span class="badge bg-success m-1">{{ note }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <em class="text-muted">هیچ موردی ثبت نشده</em>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <strong class="text-warning">پای راست:</strong><br>
+                                {% if technical_notes_right %}
+                                    {% for note in technical_notes_right %}
+                                        <span class="badge bg-warning text-dark m-1">{{ note }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <em class="text-muted">هیچ موردی ثبت نشده</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        {% if technical_notes %}
+                            {% for note in technical_notes %}
+                                <span class="badge bg-primary m-1">{{ note }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <em class="text-muted">هیچ خلاصه پرونده‌ای ثبت نشده است.</em>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- طراحی کفی -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <strong>طراحی کفی</strong>
+                </div>
+                <div class="card-body">
+                    {% if order.different_designs %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong class="text-success">پای چپ:</strong><br>
+                                {% if designes_left %}
+                                    {% for design in designes_left %}
+                                        <span class="badge bg-success m-1">{{ design }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <em class="text-muted">هیچ طراحی ثبت نشده</em>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <strong class="text-warning">پای راست:</strong><br>
+                                {% if designes_right %}
+                                    {% for design in designes_right %}
+                                        <span class="badge bg-warning text-dark m-1">{{ design }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <em class="text-muted">هیچ طراحی ثبت نشده</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        {% if designes %}
+                            {% for design in designes %}
+                                <span class="badge bg-secondary m-1">{{ design }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <em class="text-muted">هیچ طراحی ثبت نشده است.</em>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- اندازه‌های ثبت شده -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <strong>اندازه‌های ثبت شده</strong>
+                </div>
+                <div class="card-body">
+                    {% if measurements %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>پارامتر</th>
+                                        <th>اندازه پای راست</th>
+                                        <th>اندازه پای چپ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for measurement in measurements %}
+                                    <tr>
+                                        <td><strong>{{ measurement.parameter }}</strong></td>
+                                        <td>{{ measurement.right_foot_size|default:"—" }}</td>
+                                        <td>{{ measurement.left_foot_size|default:"—" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <em class="text-muted">هیچ اندازه‌ای ثبت نشده است.</em>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- تاریخچه وضعیت‌ها -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5>تاریخچه تغییرات وضعیت</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for record in order.status_history.all|dictsortreversed:"changed_at" %}
+                        <div class="timeline-item mb-4">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content p-3 border rounded bg-white">
+                                <p class="mb-1"><strong>وضعیت:</strong> {{ record.get_status_display }}</p>
+                                <p class="mb-1"><strong>تاریخ:</strong> {{ record.changed_at|jformat:"%Y/%m/%d ساعت %H:%M" }}</p>
+                                <p class="mb-0"><strong>توسط:</strong> {{ record.changed_by.get_full_name|default:record.changed_by.username }}</p>
+                                {% if record.notes %}
+                                    <div class="mt-3 p-3 bg-light rounded border-start border-primary border-4">
+                                        <strong class="text-primary">توضیحات:</strong>
+                                        <p class="mb-0 mt-2">{{ record.notes|linebreaksbr }}</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted">هنوز تغییری ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- سایدبار راست — عملیات پذیرش -->
+        <div class="col-lg-4">
+            <div class="card sticky-top shadow-sm" style="top: 20px;">
+                <div class="card-header bg-success text-white text-center">
+                    <h5 class="mb-0">عملیات پذیرش</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4 text-center">
+                        <strong class="d-block mb-2">وضعیت فعلی:</strong>
+                        <span class="badge fs-5 px-4 py-2
+                            {% if order.status == 'ready' %}bg-success
+                            {% elif order.status == 'in_progress' %}bg-warning text-dark
+                            {% elif order.status == 'delivered' %}bg-secondary
+                            {% else %}bg-primary{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">تغییر وضعیت:</label>
+                            <select name="status" class="form-select">
+                                <option value="registered" {% if order.status == 'registered' %}selected{% endif %}>ثبت شده</option>
+                                <option value="ordered" {% if order.status == 'ordered' %}selected{% endif %}>سفارش داده شده</option>
+                                <option value="canceled" {% if order.status == 'canceled' %}selected{% endif %}>لغو شده</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">یادداشت پذیرش</label>
+                            <textarea name="reception_note" class="form-control" rows="4" placeholder="یادداشت برای هماهنگی با بیمار یا کارگاه..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100 mb-2">
+                            ذخیره تغییرات
+                        </button>
+                    </form>
+
+                    <hr>
+
+                    <div class="d-grid gap-2">
+                        {% if order.phone %}
+                        <a href="tel:{{ order.phone }}" class="btn btn-outline-success">
+                            <i class="fas fa-phone me-2"></i> تماس با بیمار
+                        </a>
+                        <a href="sms:{{ order.phone }}?body=سفارش شما آماده است." class="btn btn-outline-info">
+                            <i class="fas fa-sms me-2"></i> ارسال پیامک آماده شدن
+                        </a>
+                        {% endif %}
+                        <button class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="fas fa-print me-2"></i> چاپ فرم سفارش
+                        </button>
+                        <a href="{% url 'reception-ready' %}" class="btn btn-outline-dark">
+                            بازگشت به لیست آماده‌ها
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
