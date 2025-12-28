@@ -8,6 +8,8 @@
     <div class="row">
         <!-- بخش اصلی محتوا (چپ/وسط) -->
         <div class="col-lg-8">
+
+            <!-- عنوان و اولویت -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h3 class="text-primary mb-0">
                     سفارش #{{ order.id }} — {{ order.patient_name }}
@@ -18,7 +20,7 @@
                 {% endif %}
             </div>
 
-            <!-- اطلاعات سریع بیمار -->
+            <!-- اطلاعات بیمار -->
             <div class="card mb-4 shadow-sm">
                 <div class="card-header bg-info text-white">
                     <strong>اطلاعات بیمار</strong>
@@ -31,16 +33,18 @@
                         <div class="col-md-6 mb-3">
                             <strong>شماره پرونده:</strong> {{ order.case_number|default:"—" }}
                         </div>
+
                         {% if order.phone %}
                         <div class="col-md-6 mb-3">
-                            <strong>تلفن:</strong> 
+                            <strong>تلفن:</strong>
                             <a href="tel:{{ order.phone }}" class="text-decoration-none">{{ order.phone }}</a>
                         </div>
                         <div class="col-md-6 mb-3 d-flex gap-2 align-items-center">
                             <a href="tel:{{ order.phone }}" class="btn btn-success btn-sm"><i class="fas fa-phone me-1"></i> تماس</a>
-                            <a href="sms:{{ order.phone }}" class="btn btn-info btn-sm text-white"><i class="fas fa-sms me-1"></i> پیامک</a>
+                            <a href="sms:{{ order.phone }}?body=سفارش شما آماده است." class="btn btn-info btn-sm text-white"><i class="fas fa-sms me-1"></i> پیامک</a>
                         </div>
                         {% endif %}
+
                         <div class="col-md-6 mb-3">
                             <strong>نوع ارتوز:</strong> {{ order.get_device_type_display }}
                         </div>
@@ -76,7 +80,10 @@
                                     <td>{{ prev_order.created_at|jformat:"%Y/%m/%d" }}</td>
                                     <td>{{ prev_order.get_device_type_display }}</td>
                                     <td>
-                                        <span class="badge bg-{% if prev_order.status == 'ready' %}success{% elif prev_order.status == 'in_progress' %}warning{% elif prev_order.status == 'delivered' %}secondary{% else %}primary{% endif %}">
+                                        <span class="badge bg-{% if prev_order.status == 'ready' %}success
+                                            {% elif prev_order.status == 'in_progress' %}warning
+                                            {% elif prev_order.status == 'delivered' %}secondary
+                                            {% else %}primary{% endif %}">
                                             {{ prev_order.get_status_display }}
                                         </span>
                                     </td>
@@ -211,34 +218,64 @@
                 </div>
             </div>
 
-            <!-- تاریخچه وضعیت‌ها -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-light">
-                    <h5>تاریخچه تغییرات وضعیت</h5>
+            <!-- تاریخچه تغییرات وضعیت کارگاه -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">تاریخچه تغییرات وضعیت کارگاه</h5>
                 </div>
                 <div class="card-body">
                     <div class="timeline">
-                        {% for record in order.status_history.all|dictsortreversed:"changed_at" %}
+                        {% for record in workshop_history %}
                         <div class="timeline-item mb-4">
-                            <div class="timeline-marker"></div>
-                            <div class="timeline-content p-3 border rounded bg-white">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content p-3 border rounded bg-light">
                                 <p class="mb-1"><strong>وضعیت:</strong> {{ record.get_status_display }}</p>
                                 <p class="mb-1"><strong>تاریخ:</strong> {{ record.changed_at|jformat:"%Y/%m/%d ساعت %H:%M" }}</p>
-                                <p class="mb-0"><strong>توسط:</strong> {{ record.changed_by.get_full_name|default:record.changed_by.username }}</p>
+                                <p class="mb-0"><strong>توسط:</strong> {{ record.changed_by.get_full_name|default:record.changed_by.username|default:"نامشخص" }}</p>
                                 {% if record.notes %}
-                                    <div class="mt-3 p-3 bg-light rounded border-start border-primary border-4">
-                                        <strong class="text-primary">توضیحات:</strong>
+                                    <div class="mt-3 p-3 bg-white rounded border-start border-primary border-4">
+                                        <strong class="text-primary">توضیحات کارگاه:</strong>
                                         <p class="mb-0 mt-2">{{ record.notes|linebreaksbr }}</p>
                                     </div>
                                 {% endif %}
                             </div>
                         </div>
                         {% empty %}
-                        <p class="text-muted">هنوز تغییری ثبت نشده است.</p>
+                        <p class="text-muted">هنوز تغییری توسط کارگاه ثبت نشده است.</p>
                         {% endfor %}
                     </div>
                 </div>
             </div>
+
+            <!-- تاریخچه تغییرات پذیرش (نتیجه تماس‌ها و هماهنگی‌ها) -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">تاریخچه اقدامات و تماس‌های پذیرش</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for record in reception_history %}
+                        <div class="timeline-item mb-4">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content p-3 border rounded bg-light">
+                                <p class="mb-1"><strong>وضعیت ثبت‌شده:</strong> {{ record.get_status_display }}</p>
+                                <p class="mb-1"><strong>تاریخ:</strong> {{ record.changed_at|jformat:"%Y/%m/%d ساعت %H:%M" }}</p>
+                                <p class="mb-0"><strong>توسط:</strong> {{ record.changed_by.get_full_name|default:record.changed_by.username|default:"نامشخص" }}</p>
+                                {% if record.notes %}
+                                    <div class="mt-3 p-3 bg-white rounded border-start border-success border-4">
+                                        <strong class="text-success">یادداشت پذیرش / نتیجه تماس:</strong>
+                                        <p class="mb-0 mt-2">{{ record.notes|linebreaksbr }}</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted">هنوز هیچ اقدامی توسط پذیرش ثبت نشده است.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- سایدبار راست — عملیات پذیرش -->
@@ -248,8 +285,10 @@
                     <h5 class="mb-0">عملیات پذیرش</h5>
                 </div>
                 <div class="card-body">
+
+                    <!-- وضعیت فعلی -->
                     <div class="mb-4 text-center">
-                        <strong class="d-block mb-2">وضعیت فعلی:</strong>
+                        <strong class="d-block mb-2">وضعیت فعلی سفارش:</strong>
                         <span class="badge fs-5 px-4 py-2
                             {% if order.status == 'ready' %}bg-success
                             {% elif order.status == 'in_progress' %}bg-warning text-dark
@@ -259,48 +298,80 @@
                         </span>
                     </div>
 
+                    <!-- فرم ثبت تغییرات پذیرش -->
                     <form method="post">
                         {% csrf_token %}
+
                         <div class="mb-3">
-                            <label class="form-label fw-bold">تغییر وضعیت:</label>
-                            <select name="status" class="form-select">
-                                <option value="registered" {% if order.status == 'registered' %}selected{% endif %}>ثبت شده</option>
-                                <option value="ordered" {% if order.status == 'ordered' %}selected{% endif %}>سفارش داده شده</option>
-                                <option value="canceled" {% if order.status == 'canceled' %}selected{% endif %}>لغو شده</option>
-                            </select>
+                            <label class="form-label fw-bold">{{ form.status.label }}</label>
+                            {{ form.status }}
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label fw-bold">یادداشت پذیرش</label>
-                            <textarea name="reception_note" class="form-control" rows="4" placeholder="یادداشت برای هماهنگی با بیمار یا کارگاه..."></textarea>
+                            <label class="form-label fw-bold">{{ form.notes.label }}</label>
+                            {{ form.notes }}
+                            <small class="text-muted">مثلاً: بیمار تماس گرفت و گفت فردا می‌آید، یا نتیجه تماس: پاسخ نداد</small>
                         </div>
 
-                        <button type="submit" class="btn btn-success btn-lg w-100 mb-2">
-                            ذخیره تغییرات
+                        <button type="submit" class="btn btn-success btn-lg w-100 mb-3">
+                            <i class="fas fa-save me-2"></i> ذخیره تغییرات پذیرش
                         </button>
                     </form>
 
-                    <hr>
+                    <hr class="my-4">
 
+                    <!-- دکمه‌های سریع -->
                     <div class="d-grid gap-2">
                         {% if order.phone %}
                         <a href="tel:{{ order.phone }}" class="btn btn-outline-success">
                             <i class="fas fa-phone me-2"></i> تماس با بیمار
                         </a>
-                        <a href="sms:{{ order.phone }}?body=سفارش شما آماده است." class="btn btn-outline-info">
-                            <i class="fas fa-sms me-2"></i> ارسال پیامک آماده شدن
+                        <a href="sms:{{ order.phone }}?body=سفارش شما آماده تحویل است. لطفاً مراجعه فرمایید." class="btn btn-outline-info">
+                            <i class="fas fa-sms me-2"></i> پیامک آماده شدن
                         </a>
                         {% endif %}
+
                         <button class="btn btn-outline-secondary" onclick="window.print()">
                             <i class="fas fa-print me-2"></i> چاپ فرم سفارش
                         </button>
+
                         <a href="{% url 'reception-ready' %}" class="btn btn-outline-dark">
-                            بازگشت به لیست آماده‌ها
+                            <i class="fas fa-arrow-left me-2"></i> بازگشت به لیست سفارشات آماده
                         </a>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- استایل ساده برای timeline -->
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        width: 4px;
+        background: #e9ecef;
+        top: 0;
+        bottom: 0;
+        left: 8px;
+    }
+    .timeline-item {
+        position: relative;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 6px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        z-index: 1;
+    }
+</style>
 {% endblock %}

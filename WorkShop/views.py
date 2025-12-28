@@ -1,8 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from urllib3 import request
-from .models import Order, OrderStatusHistory, Measurement, Notification
-from .forms import OrderCreateForm
+from .models import Order, WorkshopStatusHistory, Measurement
+from reception.models import ReceptionStatusHistory, Patient, Notification  # اگر هنوز استفاده می‌کنی
+from .forms import OrderCreateForm, ReceptionStatusForm
 from .decorators import group_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -10,11 +11,12 @@ from .models import Order
 from django.db.models import Q
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.urls import reverse
 from jdatetime import datetime as jdatetime
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+
 
 @csrf_exempt  # یا از csrf_protect استفاده کن و توکن رو چک کن
 @login_required
@@ -31,6 +33,7 @@ def mark_notification_read(request):
         except:
             return JsonResponse({'success': False})
     return JsonResponse({'success': False})
+
 
 def shamsi_to_gregorian(shamsi_str):
     """
@@ -84,7 +87,7 @@ def dashboard(request):
             status='in_progress').count()
         context['my_ready_count'] = Order.objects.filter(
             status='ready', ready_by=user).count()
-
+        context['my_ready_url'] = f"{reverse('workshop-list')}?status=ready&ready_by={user.username}"
         # تعداد اورژانسی‌های در حال کار یا آماده برای کارگاه
         context['urgent_in_workshop_count'] = Order.objects.filter(
             priority='urgent',
@@ -95,7 +98,8 @@ def dashboard(request):
 # —————————————— محاسبه تعداد اعلان‌های خوانده‌نشده ——————————————
     unread_count = user.notifications.filter(is_read=False).count()
     context['unread_notifications_count'] = unread_count
-    context['notifications'] = user.notifications.all().order_by('-created_at')[:10]
+    context['notifications'] = user.notifications.all().order_by(
+        '-created_at')[:10]
     return render(request, 'workshop/dashboard.html', context)
 
 
@@ -150,13 +154,14 @@ def reception_create_order(request):
                 order.technical_notes = ', '.join(technical_notes)
 
             order.save()
-            
-            # اعلان برای کارگاه
-            create_notification(
-                user=User.objects.filter(groups__name='Workshop').first(),  # یا گروه خاص
-                message=f"سفارش جدید برای {order.patient_name} ثبت شد",
-                url=reverse('workshop-update', args=[order.id])
-            )
+
+            # # اعلان برای کارگاه
+            # create_notification(
+            #     user=User.objects.filter(
+            #         groups__name='Workshop').first(),  # یا گروه خاص
+            #     message=f"سفارش جدید برای {order.patient_name} ثبت شد",
+            #     url=reverse('workshop-update', args=[order.id])
+            # )
             # —————————————— ذخیره اندازه‌ها (همون قبلی، بدون تغییر) ——————————————
             index = 0
             while f'sizes[{index}][parameter]' in request.POST:
@@ -209,6 +214,11 @@ def workshop_order_list(request):
     if status:
         orders = orders.filter(status=status)
 
+# فیلتر آماده‌کننده (فقط برای کارهای آماده)
+    ready_by = request.GET.get('ready_by')
+    if ready_by and status == 'ready':
+        orders = orders.filter(ready_by__username=ready_by)
+
     # فیلتر نوع وسیله
     device_type = request.GET.get('device_type')
     if device_type:
@@ -242,99 +252,108 @@ def workshop_order_list(request):
 def workshop_update_order(request, order_id):
     order = get_object_or_404(Order, id=order_id)
     measurements = order.measurements.all()
-# —————————————— پیدا کردن همه سفارشات این بیمار (بر اساس شماره پرونده) ——————————————
-    patient_orders = Order.objects.filter(
-        case_number=order.case_number
-    ).exclude(
-        id=order.id  # سفارش فعلی رو حذف کن تا تکرار نشه
-    ).order_by('-created_at')  # جدیدترین اول
-    # آماده‌سازی لیست‌ها برای نمایش در قالب
-    if order.different_designs:
-        technical_notes_list_left = order.technical_notes_left.split(
-            ', ') if order.technical_notes_left else []
-        technical_notes_list_right = order.technical_notes_right.split(
-            ', ') if order.technical_notes_right else []
-        technical_notes_list = None
-    else:
-        technical_notes_list = order.technical_notes.split(
-            ', ') if order.technical_notes else []
-        technical_notes_list_left = technical_notes_list_right = None
+    patient_orders = Order.objects.filter(case_number=order.case_number).exclude(
+        id=order.id).order_by('-created_at')
 
+    # آماده‌سازی لیست‌ها برای نمایش (چپ/راست یا مشترک)
     if order.different_designs:
-        designes_list_left = order.designes_left.split(
+        technical_notes_left = order.technical_notes_left.split(
+            ', ') if order.technical_notes_left else []
+        technical_notes_right = order.technical_notes_right.split(
+            ', ') if order.technical_notes_right else []
+        technical_notes = None
+        designes_left = order.designes_left.split(
             ', ') if order.designes_left else []
-        designes_list_right = order.designes_right.split(
+        designes_right = order.designes_right.split(
             ', ') if order.designes_right else []
-        designes_list = None
+        designes = None
     else:
-        designes_list = order.designes.split(', ') if order.designes else []
-        designes_list_left = designes_list_right = None
+        technical_notes = order.technical_notes.split(
+            ', ') if order.technical_notes else []
+        technical_notes_left = technical_notes_right = None
+        designes = order.designes.split(', ') if order.designes else []
+        designes_left = designes_right = None
 
     if request.method == 'POST':
-        new_status = request.POST.get('status').strip()
+        new_status = request.POST.get('status', '').strip()
         new_notes = request.POST.get('workshop_notes', '').strip()
-        if new_status != order.status or new_notes != (order.workshop_notes or ''):
+
+        status_changed = new_status != order.status
+        notes_changed = new_notes != (order.workshop_notes or '')
+
+        if status_changed or notes_changed:
             # ذخیره توضیحات کارگاه
             order.workshop_notes = new_notes
             order.save()
-            # ثبت در تاریخچه فقط اگر وضعیت تغییر کرده باشه
+
             if new_status != order.status:
-                OrderStatusHistory.objects.create(
+                WorkshopStatusHistory.objects.create(
                     order=order,
                     status=new_status,
                     changed_by=request.user,
-                    notes=new_notes  # اگر فیلد notes در مدل داری، یا توضیحات رو جدا ذخیره کن
+                    notes=new_notes
                 )
+
                 order.status = new_status
+
+                if new_status == 'ready':
+                    order.ready_by = request.user
+                    order.ready_at = timezone.now()
+
                 order.save()
-            else:
+
+                # —————— نوتیفیکیشن به پذیرش ——————
+                # if new_status == 'ready':
+                #     # try:
+                #     #     reception_group = Group.objects.get(name='Reception')
+                #     #     reception_users = reception_group.user_set.all()
+
+                #     #     for user in reception_users:
+                #     #         # create_notification(
+                #     #         #     user=user,
+                #     #         #     message=f"سفارش آماده تحویل شد: #{order.id} - {order.patient_name} ({order.get_device_type_display()})",
+                #     #         #     url=reverse('reception-order-detail', args=[order.id])
+                #     #         # )
+                #     #     # messages.success(request, 'سفارش آماده شد و پذیرش مطلع گردید.')
+                #     # except Group.DoesNotExist:
+                #     #     messages.warning(request, 'گروه Reception وجود ندارد. نوتیفیکیشن ارسال نشد.')
+                # else:
+                #     messages.success(request, f'وضعیت سفارش به "{order.get_status_display()}" تغییر کرد.')
+
+                # اعلان به پذیرش
+                def create_notification(user, message, url=None):
+                    if user:  # اضافه کردن چک برای جلوگیری از خطا
+                        Notification.objects.create(
+                            user=user,
+                            message=message,
+                            url=url,
+                        )
                 messages.success(
-                    request, f'وضعیت سفارش {order.id} به {new_status} تغییر کرد.')
+                    request, f'وضعیت سفارش به "{order.get_status_display()}" تغییر کرد و پذیرش مطلع شد.')
+            else:
+                messages.success(request, 'یادداشت کارگاه ذخیره شد.')
+
         return redirect('workshop-list')
 
     return render(request, 'workshop/workshop_update.html', {
         'order': order,
         'measurements': measurements,
         'patient_orders': patient_orders,
-        'technical_notes_list': technical_notes_list,
-        'technical_notes_list_left': technical_notes_list_left,
-        'technical_notes_list_right': technical_notes_list_right,
-        'designes_list': designes_list,
-        'designes_list_left': designes_list_left,
-        'designes_list_right': designes_list_right,
+        'technical_notes_list': technical_notes,
+        'technical_notes_list_left': technical_notes_left,
+        'technical_notes_list_right': technical_notes_right,
+        'designes_list': designes,
+        'designes_list_left': designes_left,
+        'designes_list_right': designes_right,
+        # اختیاری: نمایش تاریخچه کارگاه در صفحه کارگاه
+        'workshop_history': order.workshop_history.all(),
     })
 
 
-def custom_login(request):
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-
-        user = authenticate(request, username=username, password=password)
-
-        if user is not None:
-            login(request, user)
-
-            # هدایت بر اساس نقش
-            if user.groups.filter(name='Reception').exists():
-                return redirect('dashboard')
-
-            if user.groups.filter(name='Workshop').exists():
-                return redirect('dashboard')
-
-            # اگر نقش نداشت
-            logout(request)
-            messages.error(request, 'نقش کاربری برای شما تعریف نشده است')
-
-        else:
-            messages.error(request, 'نام کاربری یا رمز عبور اشتباه است')
-
-    return render(request, 'workshop/login.html')
 
 
-def custom_logout(request):
-    logout(request)
-    return redirect('login')
+
+
 
 
 @group_required('Reception')
@@ -418,6 +437,16 @@ def deliver_order(request, order_id):
         order.delivered_by = request.user
         order.save()
 
+        # ثبت در تاریخچه پذیرش
+        ReceptionStatusHistory.objects.create(
+            order=order,
+            status='delivered',
+            changed_by=request.user,
+            notes="تحویل به بیمار انجام شد."
+        )
+
+        messages.success(
+            request, f'سفارش #{order.id} با موفقیت تحویل داده شد.')
         return redirect('reception-ready')
 
     return redirect('reception-ready')
@@ -482,7 +511,7 @@ def reception_order_detail(request, order_id):
     patient_orders = Order.objects.filter(case_number=order.case_number).exclude(
         id=order.id).order_by('-created_at')
 
-    # آماده‌سازی لیست‌ها برای نمایش
+    # آماده‌سازی لیست‌های طراحی و خلاصه پرونده
     if order.different_designs:
         technical_notes_left = order.technical_notes_left.split(
             ', ') if order.technical_notes_left else []
@@ -501,22 +530,37 @@ def reception_order_detail(request, order_id):
         designes = order.designes.split(', ') if order.designes else []
         designes_left = designes_right = None
 
+    # فرم برای ثبت تغییرات پذیرش
     if request.method == 'POST':
-        # عملیات پذیرش (مثلاً تغییر وضعیت اولیه یا اضافه کردن یادداشت)
-        new_status = request.POST.get('status')
-        if new_status and new_status in ['registered', 'ordered', 'canceled']:
+        form = ReceptionStatusForm(request.POST)
+        if form.is_valid():
+            new_status = form.cleaned_data['status']
+            new_notes = form.cleaned_data['notes']
+
+            # همیشه یک رکورد در تاریخچه پذیرش ثبت می‌کنیم (حتی اگر وضعیت تغییر نکرده باشد)
+            ReceptionStatusHistory.objects.create(
+                order=order,
+                status=new_status,
+                changed_by=request.user,
+                notes=new_notes or "بدون توضیح"
+            )
+
+            # فقط اگر وضعیت تغییر کرده باشد، وضعیت اصلی سفارش را به‌روزرسانی می‌کنیم
             if new_status != order.status:
-                OrderStatusHistory.objects.create(
-                    order=order,
-                    status=new_status,
-                    changed_by=request.user,
-                    notes=request.POST.get('reception_note', '')
-                )
                 order.status = new_status
                 order.save()
-                messages.success(request, 'وضعیت سفارش به‌روزرسانی شد.')
-        return redirect('reception-order-detail', order_id=order.id)
 
+                # اعلان به کارگاه در صورت نیاز
+                create_notification(
+                    user=order.ready_by if order.ready_by else None,
+                    message=f"پذیرش وضعیت سفارش #{order.id} را به «{order.get_status_display()}» تغییر داد.\nتوضیح: {new_notes}",
+                    url=reverse('workshop-update', args=[order.id])
+                )
+
+            messages.success(request, 'تغییرات پذیرش با موفقیت ثبت شد.')
+            return redirect('reception-order-detail', order_id=order.id)
+    else:
+        form = ReceptionStatusForm(initial={'status': order.status})  # درست
     context = {
         'order': order,
         'measurements': measurements,
@@ -527,6 +571,12 @@ def reception_order_detail(request, order_id):
         'designes': designes,
         'designes_left': designes_left,
         'designes_right': designes_right,
+
+        # دو تاریخچه جداگانه
+        'workshop_history': order.workshop_history.all(),
+        'reception_history': order.reception_history.all(),
+
+        'form': form,  # برای سایدبار
     }
 
     return render(request, 'workshop/reception_order_detail.html', context)

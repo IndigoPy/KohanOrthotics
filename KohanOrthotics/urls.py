@@ -1,23 +1,21 @@
-"""
-URL configuration for KohanOrthotics project.
+# KohanOrthotics/urls.py
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include
+from . import views  # برای داشبورد اصلی و لاگین
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include("WorkShop.urls"))
+
+    # صفحه اصلی — فقط لاگین
+    path('', views.custom_login, name='login'),  # یا هر ویوی لاگین که داری
+    path('login/', views.custom_login, name='login'),
+    path('logout/', views.custom_logout, name='logout'),
+
+    # داشبورد مرکزی — بعد از لاگین
+    path('dashboard/', views.main_dashboard, name='main-dashboard'),
+
+    # اپ‌های مختلف
+    path('reception/', include('reception.urls')),
+    path('workshop/', include('WorkShop.urls')),
 ]

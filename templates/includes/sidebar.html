@@ -1,0 +1,36 @@
+<!-- templates/includes/sidebar.html -->
+ {% load static %}
+<div class="logo">
+    <img src="{% static 'images/logo.png' %}" alt="لوگو کلینیک" onerror="this.style.display='none'">
+    <h4 class="text-white mt-2">کوهان ارتوتیکس</h4>
+</div>
+<nav class="mt-4">
+    {% if 'Reception' in user.groups.all|join:"," %}
+    <a href="{% url 'reception:dashboard' %}" class="nav-link">
+        <i class="fas fa-user-check"></i>
+        <span>پذیرش بیمار</span>
+    </a>
+    {% endif %}
+
+    {% if 'Workshop' in user.groups.all|join:"," %}
+    <a href="{% url 'workshop-list' %}" class="nav-link">
+        <i class="fas fa-tools"></i>
+        <span>کارگاه تولید</span>
+    </a>
+    {% endif %}
+
+    <a href="#" class="nav-link">
+        <i class="fas fa-chart-bar"></i>
+        <span>گزارشات</span>
+    </a>
+
+    <a href="#" class="nav-link">
+        <i class="fas fa-calendar-check"></i>
+        <span>پیگیری مراجعین</span>
+    </a>
+
+    <a href="{% url 'logout' %}" class="nav-link mt-auto">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>خروج</span>
+    </a>
+</nav>

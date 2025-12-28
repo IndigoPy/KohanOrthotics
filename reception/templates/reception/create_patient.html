@@ -1,0 +1,88 @@
+{% extends 'workshop/base.html' %}
+{% load static %}
+
+{% block title %}ثبت بیمار جدید{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white text-center">
+                    <h3 class="mb-0"><i class="fas fa-user-plus me-2"></i> ثبت بیمار جدید</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <!-- شماره پرونده - ضروری -->
+                            <div class="col-md-6">
+                                <label for="case_number" class="form-label fw-bold">شماره پرونده <span class="text-danger">*</span></label>
+                                <input type="text" name="case_number" id="case_number" class="form-control form-control-lg" placeholder="مثال: 1404-001" required>
+                            </div>
+
+                            <!-- نام و نام خانوادگی - ضروری -->
+                            <div class="col-md-6">
+                                <label for="full_name" class="form-label fw-bold">نام و نام خانوادگی <span class="text-danger">*</span></label>
+                                <input type="text" name="full_name" id="full_name" class="form-control form-control-lg" required>
+                            </div>
+
+                            <!-- تلفن همراه -->
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label fw-bold">تلفن همراه</label>
+                                <input type="text" name="phone" id="phone" class="form-control" placeholder="09123456789" dir="ltr">
+                            </div>
+
+                            <!-- تلفن دیگر -->
+                            <div class="col-md-6">
+                                <label for="alternative_phone" class="form-label fw-bold">تلفن ثابت یا همراه دیگر</label>
+                                <input type="text" name="alternative_phone" id="alternative_phone" class="form-control" placeholder="02112345678" dir="ltr">
+                            </div>
+
+                            <!-- سن و جنسیت -->
+                            <div class="col-md-4">
+                                <label for="age" class="form-label fw-bold">سن</label>
+                                <input type="number" name="age" id="age" class="form-control" min="1" max="120">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="gender" class="form-label fw-bold">جنسیت</label>
+                                <select name="gender" id="gender" class="form-select">
+                                    <option value="">انتخاب کنید</option>
+                                    <option value="male">مرد</option>
+                                    <option value="female">زن</option>
+                                    <option value="other">سایر</option>
+                                </select>
+                            </div>
+
+                            <!-- آدرس -->
+                            <div class="col-12">
+                                <label for="address" class="form-label fw-bold">آدرس</label>
+                                <textarea name="address" id="address" class="form-control" rows="2"></textarea>
+                            </div>
+
+                            <!-- یادداشت‌های پزشکی -->
+                            <div class="col-12">
+                                <label for="medical_notes" class="form-label fw-bold">یادداشت‌های پزشکی یا عمومی</label>
+                                <textarea name="medical_notes" id="medical_notes" class="form-control" rows="4" placeholder="مثال: دیابت، آلرژی، سابقه جراحی پا و ..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-save me-2"></i> ثبت بیمار و ادامه به ساخت سفارش
+                            </button>
+                        </div>
+
+                        <div class="text-center mt-3">
+                            <a href="{% url 'reception:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i> بازگشت به جستجوی بیمار
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

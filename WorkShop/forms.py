@@ -1,70 +1,71 @@
+# WorkShop/forms.py
+
 from django import forms
 from .models import Order
-
-
-class Select2Widget(forms.SelectMultiple):
-    class Media:
-        css = {
-            'all': ('https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/css/select2.min.css',)
-        }
-        js = ('https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js',)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.attrs.update({'class': 'form-control select2'})
-
+from reception.models import Patient  # برای جستجو یا انتخاب بیمار اگر لازم بشه
 
 
 class OrderCreateForm(forms.ModelForm):
     class Meta:
         model = Order
         fields = [
-            'case_number',
-            'patient_name',
+            'patient',           # جدید — به جای patient_name و case_number
             'device_type',
-            'status',
             'side',
             'different_designs',
-            'technical_notes',
-            'designes',
+            'designes_left',     # اگر different_designs=True باشه
+            'designes_right',
+            'technical_notes_left',
+            'technical_notes_right',
             'priority',
             'send_to',
+            'status',
         ]
 
         widgets = {
-            'case_number': forms.TextInput(attrs={
-                'class': 'form-control', 'placeholder': 'شماره پرونده'
-            }),
-            'patient_name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'نام بیمار',
-
-            }),
-            'status': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'device_type': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'side': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'technical_notes': forms.SelectMultiple(attrs={
+            'patient': forms.Select(attrs={
                 'class': 'form-control select2',
-                'id': 'technical-notes-select',
+                'id': 'patient-select'
             }),
-            'designes': forms.SelectMultiple(attrs={
-                'class': 'form-control select2',
-                'id': 'designes-select',
-            }),
-            'priority': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'send_to': forms.Select(attrs={
-                'class': 'form-control'
-            }),
+            'device_type': forms.Select(attrs={'class': 'form-control'}),
+            'side': forms.Select(attrs={'class': 'form-control'}),
+            'priority': forms.Select(attrs={'class': 'form-control'}),
+            'send_to': forms.Select(attrs={'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+            'different_designs': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['technical_notes'].required = False
-        self.fields['designes'].required = False
+        # محدود کردن patient به لیست بیماران (یا بعداً با Select2 جستجو کنیم)
+        self.fields['patient'].queryset = Patient.objects.all().order_by('-created_at')
+
+        # فیلدهای چپ/راست اختیاری
+        self.fields['designes_left'].required = False
+        self.fields['designes_right'].required = False
+        self.fields['technical_notes_left'].required = False
+        self.fields['technical_notes_right'].required = False
+
+
+# اگر هنوز ReceptionStatusForm داری، اون رو به reception منتقل کن
+# یا موقتاً نگه دار، اما بعداً منتقل می‌کنیم
+class ReceptionStatusForm(forms.Form):
+    status = forms.ChoiceField(
+        choices=[
+            ('registered', 'ثبت شده'),
+            ('ordered', 'سفارش داده شده'),
+            ('canceled', 'لغو شده'),
+            ('contacted', 'تماس گرفته شد'),
+            ('patient_notified', 'اطلاع‌رسانی به بیمار'),
+            ('patient_arrived', 'بیمار مراجعه کرد'),
+            ('delayed', 'تأخیر در مراجعه'),
+            ('delivered', 'تحویل داده شده'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="وضعیت جدید"
+    )
+    notes = forms.CharField(
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'نتیجه تماس، یادداشت هماهنگی و ...'}),
+        required=False,
+        label="یادداشت پذیرش"
+    )
