@@ -1,88 +1,338 @@
-{% extends 'workshop/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
+{% load jformat %}
 
-{% block title %}پذیرش - جستجوی بیمار{% endblock %}
+{% block title %}پذیرش بیمار{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+    :root {
+        --primary: #0d6efd;
+        --primary-dark: #4a4cc0;
+        --secondary: #7209b7;
+        --text-light: #2c3e50;
+        --text-dark: #ecf0f1;
+        --bg-light: #f8f9fa;
+        --bg-dark: #121212;
+        --card-light: #ffffff;
+        --card-dark: #1e1e1e;
+        --table-text-light: #2c3e50;
+        --table-text-dark: #ecf0f1;
+    }
+
+    body {
+        background-color: var(--bg-light);
+        color: var(--text-light);
+        transition: all 0.4s ease;
+    }
+
+    body.dark {
+        background-color: var(--bg-dark);
+        color: var(--text-dark);
+    }
+
+    .card,
+    .patients-table,
+    .list-group-item,
+    .offcanvas-body {
+        background-color: var(--card-light) !important;
+        color: var(--text-light);
+        transition: all 0.4s ease;
+    }
+
+    body.dark .card,
+    body.dark .patients-table,
+    body.dark .list-group-item,
+    body.dark .offcanvas-body,
+    body.dark .table {
+        background-color: var(--card-dark) !important;
+        color: var(--text-dark) !important;
+    }
+
+    /* جدول — رنگ متن همیشه خوانا */
+    .patients-table table {
+        color: var(--table-text-light);
+    }
+
+    body.dark .patients-table table {
+        color: var(--table-text-dark);
+    }
+
+    .patients-table th {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+
+    .patients-table td {
+        color: inherit;
+    }
+
+    .patients-table tbody tr:hover {
+        background: rgba(0, 0, 0, 0.05) !important;
+    }
+
+    body.dark .patients-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* رنگ‌بندی ردیف بیماران */
+    .patient-row-green td {
+        background: #d4edda !important;
+        color: #155724 !important;
+    }
+
+    .patient-row-yellow td {
+        background: #fff3cd !important;
+        color: #856404 !important;
+    }
+
+    .patient-row-red td {
+        background: #f8d7da !important;
+        color: #721c24 !important;
+    }
+
+    body.dark .patient-row-green td {
+        background: #0f5132 !important;
+        color: #d4edda !important;
+    }
+
+    body.dark .patient-row-yellow td {
+        background: #664d03 !important;
+        color: #fff3cd !important;
+    }
+
+    body.dark .patient-row-red td {
+        background: #842029 !important;
+        color: #f8d7da !important;
+    }
+
+    /* بقیه استایل‌ها مثل قبل... */
+    .search-card {
+        background: white;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+
+    .search-input-group {
+        position: relative;
+    }
+
+    .search-input-group input {
+        padding-right: 50px;
+        height: 60px;
+        font-size: 1.1rem;
+        border: none;
+        border-radius: 18px;
+    }
+
+    .search-input-group .search-icon {
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.4rem;
+        color: var(--primary);
+    }
+
+    .new-patient-btn {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        border: none;
+        border-radius: 16px;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .new-patient-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(40, 167, 69, 0.4);
+    }
+
+    .patient-card {
+        background: var(--card-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    .patient-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .patient-header {
+        background: linear-gradient(135deg, var(--primary), #4d4fc0);
+        color: white;
+        padding: 1.5rem;
+    }
+
+    .patient-body {
+        padding: 1.5rem;
+    }
+
+    .patient-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .patient-info-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .patient-info-item i {
+        width: 40px;
+        font-size: 1.3rem;
+        color: var(--primary);
+    }
+
+    .action-btn {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        border: none;
+        border-radius: 12px;
+        padding: 0.8rem 1.8rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(94, 96, 206, 0.3);
+    }
+
+    .pagination .page-link {
+        border-radius: 10px;
+        margin: 0 5px;
+        padding: 0.8rem 1.2rem;
+        color: var(--primary);
+        border: 1px solid #dee2e6;
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary);
+        border-color: var(--primary);
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+
+    .no-results i {
+        font-size: 4rem;
+        color: #dee2e6;
+        margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .patient-info {
+            grid-template-columns: 1fr;
+        }
+
+        .action-btn {
+            width: 100%;
+        }
+    }
+
+    .patient-card {
+        background: var(--card-light);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+        margin-bottom: 1.5rem;
+    }
+
+    .patient-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .patient-card-green {
+        border-left: 6px solid #28a745;
+    }
+
+    .patient-card-yellow {
+        border-left: 6px solid #ffc107;
+    }
+
+    .patient-card-red {
+        border-left: 6px solid #dc3545;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-    <h2 class="text-primary mb-4">پذیرش بیمار</h2>
-
-    <!-- فرم جستجو -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-8">
-                    <input type="text" name="q" class="form-control form-control-lg" placeholder="نام بیمار، شماره پرونده یا تلفن..." value="{{ search_query|default:'' }}">
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary btn-lg w-100">جستجو</button>
-                </div>
-            </form>
+    <div class="row mb-4 align-items-center">
+        <div class="col-lg-8">
+            <h1 class="page-title mb-1">پذیرش بیمار</h1>
+            <p class="text-muted">مدیریت بیماران و ثبت سفارش جدید</p>
+        </div>
+        <div class="col-lg-4 text-lg-end">
+            <a href="{% url 'reception:new-patient' %}" class="btn text-white new-patient-btn">
+                <i class="fas fa-user-plus me-2"></i>
+                ثبت بیمار جدید
+            </a>
         </div>
     </div>
 
-    <!-- دکمه بیمار جدید -->
-    <div class="mb-4 text-end">
-        <a href="{% url 'reception:new-patient' %}" class="btn btn-success btn-lg">
-            <i class="fas fa-user-plus me-2"></i> ثبت بیمار جدید
-        </a>
+    <!-- جستجوی زنده -->
+    <div class="search-card mb-5">
+        <div class="card-body p-4">
+            <div class="search-input-group">
+                <input type="text" id="live-search" class="form-control form-control-lg shadow-sm"
+                    placeholder="جستجو بر اساس نام، شماره پرونده، تلفن یا یادداشت پزشکی..." autocomplete="off"
+                    value="{{ search_query|default:'' }}">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+        </div>
     </div>
 
-    <!-- نتایج جستجو -->
-    {% if patients %}
-    <div class="card shadow-sm">
-        <div class="card-header bg-light">
-            <strong>نتایج جستجو ({% if patients.paginator %}{{ patients.paginator.count }}{% else %}0{% endif %} بیمار)</strong>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>شماره پرونده</th>
-                        <th>نام بیمار</th>
-                        <th>تلفن</th>
-                        <th>سن / جنسیت</th>
-                        <th>عملیات</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for patient in patients %}
-                    <tr>
-                        <td><strong>{{ patient.case_number }}</strong></td>
-                        <td>{{ patient.full_name }}</td>
-                        <td>{{ patient.phone|default:"—" }}</td>
-                        <td>{{ patient.age|default:"—" }} / {{ patient.get_gender_display }}</td>
-                        <td>
-                            <a href="{% url 'reception:create-order' patient.id %}" class="btn btn-sm btn-primary">
-                                ساخت سفارش جدید
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center text-muted py-4">بیماری یافت نشد.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <!-- صفحه‌بندی -->
-        {% if patients.has_other_pages %}
-        <div class="card-footer">
-            <nav>
-                <ul class="pagination justify-content-center">
-                    {% if patients.has_previous %}
-                        <li class="page-item"><a class="page-link" href="?q={{ search_query }}&page={{ patients.previous_page_number }}">قبلی</a></li>
-                    {% endif %}
-                    <li class="page-item disabled"><span class="page-link">صفحه {{ patients.number }} از {{ patients.paginator.num_pages }}</span></li>
-                    {% if patients.has_next %}
-                        <li class="page-item"><a class="page-link" href="?q={{ search_query }}&page={{ patients.next_page_number }}">بعدی</a></li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-        {% endif %}
+    <!-- نتایج -->
+    <div id="patients-results">
+        {% include 'reception/partials/patients_list.html' %}
     </div>
-    {% endif %}
 </div>
+
+<script>
+    const searchInput = document.getElementById('live-search');
+    const resultsContainer = document.getElementById('patients-results');
+
+    searchInput.addEventListener('input', function () {
+        const query = this.value.trim();
+
+        if (query === '') {
+            // اگر فیلد خالی شد → reload صفحه تا جدول پیش‌فرض برگرده
+            window.location.search = '';
+            return;
+        }
+
+        fetch(`${window.location.pathname}?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                resultsContainer.innerHTML = data.html;
+            })
+            .catch(err => console.error('Error:', err));
+    });
+
+    // اگر کاربر Enter زد یا دکمه پاک کردن رو زد
+    searchInput.addEventListener('search', function () {
+        if (this.value === '') {
+            window.location.search = '';
+        }
+    });
+</script>
 {% endblock %}

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load jformat %}
-{% block title %}داشبورد کلینیک کوهان ارتوتیکس{% endblock %}
+{% block title %}داشبورد کلینیک کهن {% endblock %}
 
 {% block extra_head %}
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
@@ -169,7 +169,7 @@
 <!-- سایدبار راست -->
 <nav class="sidebar">
     <div class="sidebar-header">
-        <h3>کوهان ارتوتیکس</h3>
+        <h3>کلینیک ارتوپدی فنی کهن</h3>
         <p>سیستم مدیریت کلینیک</p>
     </div>
     <div class="mt-4">
@@ -220,8 +220,8 @@
 <div class="main-content">
     <div class="welcome-card">
         <div class="welcome-header">
-            <h1>خوش آمدید، {{ user.get_full_name|default:user.username }}</h1>
-            <p>یک روز عالی در کلینیک کوهان ارتوتیکس داشته باشید</p>
+            <h1>{{ user.get_full_name|default:user.username }} خوش آمدید </h1>
+            <p>یک روز عالی در کلینیک کهن داشته باشید</p>
         </div>
         <div class="card-body p-4">
             <div class="stats-grid">

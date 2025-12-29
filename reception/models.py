@@ -77,6 +77,16 @@ class Patient(models.Model):
         verbose_name='ثبت‌کننده'
     )
 
+    PATIENT_TYPE_CHOICES = (
+        ('good', 'بیمار خوب'),
+        ('medium', 'بیمار متوسط'),
+        ('bad', 'بیمار بد'),
+    )
+
+    patient_type = models.CharField(max_length=10, choices=PATIENT_TYPE_CHOICES, default='medium', verbose_name='نوع بیمار')
+    last_visit = models.DateField(null=True, blank=True, verbose_name='تاریخ آخرین مراجعه')
+    
+    
     def __str__(self):
         return f"{self.full_name} ({self.case_number})"
 
