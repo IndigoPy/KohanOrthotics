@@ -5,163 +5,371 @@
 {% block title %}جزئیات بیمار - {{ patient.full_name }}{% endblock %}
 
 {% block extra_head %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <style>
-    .patient-profile-header {
+    :root {
+        --primary: #5e60ce;
+        --secondary: #7209b7;
+        --text-light: #2c3e50;
+        --text-dark: #f1f1f1;
+        --bg-light: #f8f9fa;
+        --bg-dark: #121212;
+        --card-light: #ffffff;
+        --card-dark: #1e1e1e;
+        --border-light: #e9ecef;
+        --border-dark: #333333;
+    }
+
+    body {
+        background-color: var(--bg-light);
+        color: var(--text-light);
+    }
+
+    body.dark {
+        background-color: var(--bg-dark);
+        color: var(--text-dark);
+    }
+
+    .patient-profile-card {
+        background: var(--card-light);
+        border-radius: 24px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+        overflow: hidden;
+    }
+
+    .patient-header {
         background: linear-gradient(135deg, var(--primary), var(--secondary));
         color: white;
-        border-radius: 20px;
-        padding: 2.5rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        padding: 3rem 2rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .patient-photo {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        border: 6px solid white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        margin-top: -70px;
+        background: #fff;
+        object-fit: cover;
     }
 
     .patient-info-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 2rem;
         margin: 2rem 0;
     }
 
     .info-item {
-        background: var(--card-light);
+        background: var(--bg-light);
         padding: 1.5rem;
         border-radius: 16px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    body.dark .info-item {
+        background: var(--card-dark);
     }
 
     .info-item i {
-        font-size: 1.8rem;
+        font-size: 2rem;
         color: var(--primary);
-        margin-bottom: 1rem;
+        background: rgba(94,96,206,0.1);
+        padding: 1rem;
+        border-radius: 50%;
+    }
+
+    .orders-list {
+        margin-top: 4rem;
     }
 
     .order-card {
-        border-left: 5px solid var(--primary);
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
         transition: all 0.3s ease;
     }
 
     .order-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.12);
     }
 
     .status-badge {
-        font-size: 0.9rem;
-        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        padding: 0.6rem 1.2rem;
         border-radius: 50px;
+        text-transform: uppercase;
     }
 
-    .status-ready { background: #d4edda; color: #155724; }
-    .status-inprogress { background: #fff3cd; color: #856404; }
-    .status-delivered { background: #d1ecf1; color: #0c5460; }
+    .status-inprogress {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .status-ready {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-delivered {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .attached-patients {
+        margin-top: 4rem;
+    }
+
+    .attached-card {
+        border-left: 6px solid var(--primary);
+    }
+
+    .documents-section {
+        margin-top: 4rem;
+    }
+
+    .document-item {
+        background: var(--bg-light);
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+
+    .document-item i {
+        font-size: 2.5rem;
+        color: var(--secondary);
+    }
+
+    .action-btn {
+        border-radius: 14px;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+        .patient-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-    <!-- هدر پروفایل بیمار -->
-    <div class="patient-profile-header text-center">
-        <h1 class="mb-3">{{ patient.full_name }}</h1>
-        <p class="mb-1"><strong>شماره پرونده:</strong> {{ patient.case_number }}</p>
-        <p>تاریخ پذیرش: {{ patient.created_at|jformat:"%Y/%m/%d" }}</p>
-        {% if patient.patient_type == 'good' %}
-            <span class="badge bg-success fs-6">بیمار خوب</span>
-        {% elif patient.patient_type == 'medium' %}
-            <span class="badge bg-warning fs-6">بیمار متوسط</span>
-        {% elif patient.patient_type == 'bad' %}
-            <span class="badge bg-danger fs-6">بیمار بد</span>
-        {% endif %}
-    </div>
-
-    <div class="row">
-        <!-- اطلاعات بیمار -->
-        <div class="col-lg-4">
-            <h4 class="mb-4">اطلاعات بیمار</h4>
-            <div class="patient-info-grid">
-                <div class="info-item">
-                    <i class="fas fa-phone fa-2x"></i>
-                    <h6>تلفن</h6>
-                    <p>{{ patient.phone|default:"ثبت نشده" }}</p>
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="patient-profile-card">
+                <div class="patient-header">
+                    <!-- خط مربوط به عکس بیمار در هدر  -->
+                    <div class="d-flex justify-content-center mt-5">
+                        <img 
+                            src="{% if patient.photo %}{{ patient.photo.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                            alt="{{ patient.full_name }}" 
+                            class="patient-photo"
+                        >
+                    </div>
+                    <h2 class="mt-4 mb-2">{{ patient.full_name }}</h2>
+                    <p class="mb-0 opacity-90">شماره پرونده: <strong>{{ patient.case_number }}</strong></p>
+                    <p class="mb-0 opacity-90">تاریخ پذیرش: {{ patient.admission_date|jformat:"%Y/%m/%d"|default:"نامشخص" }}</p>
+                    <p class="mb-0 opacity-90">سن: {{ patient.age|default:"نامشخص" }} سال / {{ patient.get_gender_display|default:"نامشخص" }}</p>
                 </div>
-                <div class="info-item">
-                    <i class="fas fa-venus-mars fa-2x"></i>
-                    <h6>سن و جنسیت</h6>
-                    <p>{{ patient.age|default:"—" }} سال / {{ patient.get_gender_display|default:"—" }}</p>
-                </div>
-                <div class="info-item">
-                    <i class="fas fa-home fa-2x"></i>
-                    <h6>آدرس</h6>
-                    <p>{{ patient.address|default:"ثبت نشده" }}</p>
-                </div>
-                {% if patient.medical_notes %}
-                <div class="info-item">
-                    <i class="fas fa-notes-medical fa-2x"></i>
-                    <h6>یادداشت پزشکی</h6>
-                    <p class="small">{{ patient.medical_notes }}</p>
-                </div>
-                {% endif %}
-            </div>
 
-            <div class="text-center mt-4">
-                <a href="{% url 'reception:create-order' patient.id %}" class="btn text-white new-patient-btn w-100">
-                    <i class="fas fa-plus-circle me-2"></i>
-                    ثبت سفارش جدید برای این بیمار
-                </a>
-            </div>
-        </div>
+                <div class="card-body p-5">
+                    <div class="patient-info-grid">
+                        <div class="info-item">
+                            <i class="fas fa-phone"></i>
+                            <div>
+                                <h6 class="fw-bold">تلفن همراه</h6>
+                                <p>{{ patient.phone|default:"ثبت نشده" }}</p>
+                                <p>{{ patient.alternative_phone|default:"—" }}</p>
+                            </div>
+                        </div>
 
-        <!-- لیست سفارش‌ها -->
-        <div class="col-lg-8">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4>سفارش‌های ثبت‌شده ({{ orders.count }} مورد)</h4>
-                <a href="{% url 'reception:dashboard' %}" class="btn btn-outline-primary">
-                    <i class="fas fa-arrow-left me-2"></i>
-                    بازگشت به لیست بیماران
-                </a>
-            </div>
+                        <div class="info-item">
+                            <i class="fas fa-id-card"></i>
+                            <div>
+                                <h6 class="fw-bold">کد ملی</h6>
+                                <p>{{ patient.national_id|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
 
-            {% if orders %}
-                <div class="row">
-                    {% for order in orders %}
-                    <div class="col-md-6 mb-4">
-                        <div class="card order-card h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <h6 class="card-title mb-0">#{{ order.id }} - {{ order.get_device_type_display }}</h6>
-                                    <span class="status-badge {% if order.status == 'ready' %}status-ready{% elif order.status == 'inprogress' %}status-inprogress{% elif order.status == 'delivered' %}status-delivered{% endif %}">
-                                        {{ order.get_status_display }}
-                                    </span>
-                                </div>
-                                <p class="text-muted small mb-2">
-                                    <i class="fas fa-calendar me-1"></i>
-                                    ثبت: {{ order.created_at|jformat:"%Y/%m/%d" }}
-                                </p>
-                                <p class="mb-3">
-                                    <strong>سمت:</strong> {{ order.get_side_display }}
-                                    {% if order.priority == 'urgent' %}
-                                        <span class="badge bg-danger ms-2">فوری</span>
-                                    {% endif %}
-                                </p>
-                                <div class="text-end">
-                                    <a href="#" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-eye me-1"></i>
-                                        جزئیات سفارش
-                                    </a>
-                                </div>
+                        <div class="info-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div>
+                                <h6 class="fw-bold">تاریخ تولد</h6>
+                                <p>{{ patient.birth_date|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-home"></i>
+                            <div>
+                                <h6 class="fw-bold">آدرس مختصر</h6>
+                                <p>{{ patient.short_address|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-shoe-prints"></i>
+                            <div>
+                                <h6 class="fw-bold">سایز پا</h6>
+                                <p>{{ patient.foot_size|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-user-friends"></i>
+                            <div>
+                                <h6 class="fw-bold">معرف</h6>
+                                <p>{{ patient.referrer|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-notes-medical"></i>
+                            <div>
+                                <h6 class="fw-bold">علت مراجعه</h6>
+                                <p>{{ patient.visit_reason|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-stethoscope"></i>
+                            <div>
+                                <h6 class="fw-bold">بیماری‌های زمینه‌ای</h6>
+                                <p>{{ patient.underlying_diseases|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-history"></i>
+                            <div>
+                                <h6 class="fw-bold">سوابق ارتوتیک</h6>
+                                <p>{{ patient.orthotic_history|default:"ثبت نشده" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="fas fa-comment-dots"></i>
+                            <div>
+                                <h6 class="fw-bold">یادداشت پذیرش</h6>
+                                <p>{{ patient.reception_notes|default:"ثبت نشده" }}</p>
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    <!-- بیماران پیوست شده -->
+                    {% if attached_patients %}
+                    <div class="attached-patients">
+                        <h4 class="mb-4">بیماران مرتبط (پیوست شده)</h4>
+                        <div class="row">
+                            {% for attached in attached_patients %}
+                            <div class="col-md-4 mb-3">
+                                <a href="{% url 'reception:patient-detail' attached.id %}" class="text-decoration-none">
+                                    <div class="card attached-card p-3">
+                                        <h6 class="fw-bold">{{ attached.full_name }}</h6>
+                                        <p class="text-muted mb-0">شماره پرونده: {{ attached.case_number }}</p>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- لیست سفارش‌ها -->
+                    <div class="orders-list">
+                        <h4 class="mb-4">سفارش‌های ثبت‌شده ({{ orders.count }} مورد)</h4>
+                        {% if orders %}
+                        <div class="row">
+                            {% for order in orders %}
+                            <div class="col-md-6 mb-4">
+                                <div class="card order-card p-4">
+                                    <div class="d-flex justify-content-between mb-3">
+                                        <h6 class="fw-bold">#{{ order.id }} - {{ order.get_device_type_display }}</h6>
+                                        <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+                                    </div>
+                                    <p class="text-muted mb-2"><i class="fas fa-calendar me-1"></i> ثبت: {{ order.created_at|jformat:"%Y/%m/%d" }}</p>
+                                    <p class="mb-3"><strong>سمت:</strong> {{ order.get_side_display }} {% if order.priority == 'urgent' %}<span class="badge bg-danger">فوری</span>{% endif %}</p>
+                                    <div class="text-end">
+                                        <a href="{% url 'workshop:order-detail' order.id %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i> جزئیات سفارش
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-5x text-muted mb-4"></i>
+                            <h5 class="text-muted">هنوز سفارشی برای این بیمار ثبت نشده</h5>
+                            <a href="{% url 'reception:create-order' patient.id %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-plus me-2"></i> ثبت سفارش جدید
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- مدارک آپلود شده -->
+                    <div class="documents-section">
+                        <h4 class="mb-4">مدارک آپلود شده</h4>
+                        {% if documents %}
+                        <div class="row">
+                            {% for doc in documents %}
+                            <div class="col-md-6 mb-4">
+                                <div class="document-item">
+                                    <i class="fas fa-file-alt"></i>
+                                    <div class="flex-grow-1">
+                                        <h6 class="fw-bold">{{ doc.title|default:doc.file.name }}</h6>
+                                        <p class="text-muted mb-1">آپلود: {{ doc.uploaded_at|jformat:"%Y/%m/%d" }}</p>
+                                        <a href="{{ doc.file.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-download me-1"></i> دانلود
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted">هیچ مدرکی آپلود نشده است.</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- دکمه‌های عملیات -->
+                    <div class="d-flex flex-wrap gap-3 justify-content-center mt-5">
+                        <a href="{% url 'reception:create-order' patient.id %}" class="btn text-white action-btn" style="background: #28a745;">
+                            <i class="fas fa-plus me-2"></i> ثبت سفارش جدید
+                        </a>
+                        <a href="{% url 'reception:edit-patient' patient.id %}" class="btn text-white action-btn" style="background: var(--primary);">
+                            <i class="fas fa-edit me-2"></i> ویرایش اطلاعات بیمار
+                        </a>
+                        <a href="{% url 'reception:print-patient' patient.id %}" class="btn text-white action-btn" style="background: #17a2b8;">
+                            <i class="fas fa-print me-2"></i> چاپ پرونده
+                        </a>
+                        <a href="{% url 'reception:dashboard' %}" class="btn btn-outline-secondary action-btn">
+                            <i class="fas fa-arrow-left me-2"></i> بازگشت به لیست بیماران
+                        </a>
+                    </div>
                 </div>
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="fas fa-clipboard-list fa-5x text-muted mb-4"></i>
-                    <h5 class="text-muted">هنوز سفارشی برای این بیمار ثبت نشده</h5>
-                    <a href="{% url 'reception:create-order' patient.id %}" class="btn btn-primary mt-3">
-                        ثبت اولین سفارش
-                    </a>
-                </div>
-            {% endif %}
+            </div>
         </div>
     </div>
 </div>
