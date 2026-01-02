@@ -1,0 +1,635 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ثبت معاینه جدید برای {{ patient.full_name }}{% endblock %}
+
+{% block extra_head %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.1/dist/select2-bootstrap4.min.css"
+    rel="stylesheet" />
+
+<style>
+    :root {
+        --primary: #5e60ce;
+        --secondary: #7209b7;
+        --success: #06d6a0;
+        --info: #118ab2;
+        --warning: #ffd166;
+        --danger: #ef476f;
+        --light-bg: #f8f9fa;
+        --dark-bg: #121212;
+        --card-light: #ffffff;
+        --card-dark: #1e1e1e;
+        --border-radius: 20px;
+        --shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+        --transition: all 0.3s ease;
+    }
+
+    body.dark {
+        --light-bg: #1a1a1a;
+        --card-light: #252525;
+    }
+
+    .exam-form-card {
+        background: var(--card-light);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        max-width: 1100px;
+        margin: 2rem auto;
+    }
+
+    .exam-header {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 3.5rem 2rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .exam-header h3 {
+        font-weight: 400;
+        font-size: 2.4rem;
+        letter-spacing: 0.5px;
+    }
+
+    .exam-header p {
+        opacity: 0.95;
+        font-size: 1.2rem;
+        margin-top: 0.8rem;
+    }
+
+    .form-section {
+        background: var(--light-bg);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+        transition: var(--transition);
+    }
+
+    body.dark .form-section {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .form-section h4 {
+        color: var(--primary);
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        font-size: 1.6rem;
+        border-bottom: 3px solid var(--primary);
+        padding-bottom: 0.8rem;
+        display: inline-block;
+    }
+
+    .form-label {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #34495e;
+        margin-bottom: 0.8rem;
+    }
+
+    body.dark .form-label {
+        color: #ecf0f1;
+    }
+
+    .form-control,
+    .form-select {
+        border-radius: 14px;
+        padding: 1rem 1.4rem;
+        font-size: 1.1rem;
+        border: 2px solid #e9ecef;
+        transition: var(--transition);
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.25rem rgba(94, 96, 206, 0.15);
+    }
+
+    .select2-container--default[dir="rtl"] .select2-selection--multiple {
+        min-height: 56px;
+        padding: 0.8rem 1.2rem;
+        border-radius: 14px;
+        border: 2px solid #e9ecef;
+        background: white;
+        line-height: 1;
+    }
+
+
+    body.dark .select2-container--default[dir="rtl"] .select2-selection--multiple {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+
+    .select2-container--default[dir="rtl"] .select2-selection__choice {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        border: none;
+        border-radius: 35px;
+        padding: 0.4rem 1rem;
+        font-size: 1rem;
+    }
+
+    .select2-selection__choice>button {
+        color: red;
+    }
+
+    .design-section {
+        background: rgba(94, 96, 206, 0.05);
+        border-radius: 18px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        border: 1px solid rgba(94, 96, 206, 0.2);
+        transition: var(--transition);
+    }
+
+    .design-section:hover {
+        box-shadow: 0 10px 30px rgba(94, 96, 206, 0.15);
+        transform: translateY(-5px);
+    }
+
+    .design-section h6 {
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 1.3rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .side-section {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        border-left: 5px solid var(--primary);
+    }
+
+    body.dark .side-section {
+        background: #2d3748;
+    }
+
+    .copy-btn {
+        font-size: 0.95rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+    }
+
+    .submit-actions {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: flex-end;
+        margin-top: 3rem;
+        padding-top: 2rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .btn-modern {
+        border-radius: 16px;
+        padding: 1rem 2.5rem;
+        font-size: 1.15rem;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        transition: var(--transition);
+    }
+
+    .btn-modern:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-success-modern {
+        background: linear-gradient(135deg, #06d6a0, #05b68a);
+        border: none;
+    }
+
+    .btn-outline-modern {
+        background: transparent;
+        border: 2px solid #6c757d;
+        color: #6c757d;
+    }
+
+    .btn-outline-modern:hover {
+        background: #6c757d;
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .exam-form-card {
+            margin: 1rem;
+            border-radius: 20px;
+        }
+
+        .submit-actions {
+            flex-direction: column;
+        }
+
+        .btn-modern {
+            width: 100%;
+        }
+    }
+    /* سایدبار استیکی سمت راست */
+    .sticky-sidebar {
+        position: sticky;
+        top: 120px; /* فاصله از بالا، بسته به navbar تنظیم کن */
+        background: var(--card-light);
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow);
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+    }
+
+    .sidebar-photo {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid var(--primary);
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-info {
+        font-size: 1.05rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.8rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    body.dark .sidebar-info {
+        border-bottom: 1px solid #333;
+    }
+
+    .sidebar-info i {
+        color: var(--primary);
+        font-size: 1.4rem;
+    }
+
+    .sidebar-info p {
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .sidebar-info span {
+        color: #6c757d;
+        font-weight: 400;
+    }
+
+    @media (max-width: 992px) {
+        .sticky-sidebar {
+            position: static;
+            margin-top: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <!-- سایدبار استیکی سمت راست -->
+        <div class="col-lg-3">
+            <div class="sticky-sidebar">
+                <img 
+                    src="{% if patient.photo %}
+                    {{ patient.photo.url }}
+                    {% elif patient.gender == 'male' %}
+                    {% static 'images/man.png' %}
+                    {% elif patient.gender == 'female' %}
+                    {% static 'images/woman.png' %}
+                    {% endif %}" 
+                    alt="{{ patient.full_name }}" 
+                    class="sidebar-photo img-fluid d-block mx-auto"
+                >
+                <div class="text-center mb-3">
+                    <h5 class="fw-bold">{{ patient.full_name }}</h5>
+                    <p class="text-muted">شماره پرونده: {{ patient.case_number }}</p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-user me-2"></i>
+                    <p>سن: <span>{{ patient.age|default:"نامشخص" }} سال</span></p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-venus-mars me-2"></i>
+                    <p>جنسیت: <span>{{ patient.get_gender_display|default:"نامشخص" }}</span></p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-phone me-2"></i>
+                    <p>تلفن: <span>{{ patient.phone|default:"نامشخص" }}</span></p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-home me-2"></i>
+                    <p>آدرس: <span>{{ patient.short_address|default:"نامشخص" }}</span></p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-heartbeat me-2"></i>
+                    <p>بیماری‌ها: <span>{{ patient.underlying_diseases|default:"نامشخص" }}</span></p>
+                </div>
+                <div class="sidebar-info">
+                    <i class="fas fa-history me-2"></i>
+                    <p>سوابق ارتوتیک: <span>{{ patient.orthotic_history|default:"نامشخص" }}</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-9">
+            <div class="exam-form-card">
+                <div class="exam-header">
+                    <h3>ثبت معاینه جدید</h3>
+                    <p style="direction: rtl;">بیمار: {{ patient.full_name }} <br> (شماره پرونده: {{ patient.case_number }})</p>
+                </div>
+
+                <div class="card-body p-5">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- بخش مشاهدات -->
+                        <div class="form-section">
+                            <h4>مشاهدات از بیمار</h4>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="separate-sides-observations">
+                                <label class="form-check-label" for="separate-sides-observations">
+                                    پای چپ و راست متفاوت هستند؟
+                                </label>
+                            </div>
+                            <div id="observations-container">
+                                <select name="observations" class="form-select select2-tags" id="observations" multiple>
+                                    {% for obs in observations_list %}
+                                    <option value="{{ obs }}">{{ obs }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <small class="text-muted d-block mt-2">می‌توانید چند مورد انتخاب کنید یا مورد جدید وارد
+                                کنید</small>
+                        </div>
+
+                        <!-- بخش تجویز -->
+                        <div class="form-section">
+                            <h4>تجویز</h4>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="separate-sides-prescription">
+                                <label class="form-check-label" for="separate-sides-prescription">
+                                    پای چپ و راست متفاوت هستند؟
+                                </label>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">تجویز خدمات</label>
+                                <select id="prescription-services" class="form-select select2-tags" multiple>
+                                    {% for service in services_list %}
+                                    <option value="{{ service }}">{{ service }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div id="designs-sections"></div>
+                        </div>
+
+                        <!-- بخش تمرین‌ها -->
+                        <div class="form-section">
+                            <h4>تمرین‌ها برای بیمار</h4>
+                            <select name="exercises" class="form-select select2-tags" id="exercises" multiple>
+                                {% for ex in exercises_list %}
+                                <option value="{{ ex }}">{{ ex }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block mt-2">می‌توانید چند تمرین انتخاب کنید یا تمرین جدید وارد
+                                کنید</small>
+                        </div>
+
+                        <!-- بخش یادداشت -->
+                        <div class="form-section">
+                            <h4>یادداشت معاینه‌گر</h4>
+                            <textarea name="notes" class="form-control" rows="6"
+                                placeholder="یادداشت‌های اضافی، نکات مهم، برنامه پیگیری و ..."></textarea>
+                        </div>
+
+                        <!-- دکمه‌های عملیات -->
+                        <div class="submit-actions">
+                            <button type="submit" class="btn btn-success-modern text-white btn-modern">
+                                <i class="fas fa-save me-2"></i> ثبت معاینه
+                            </button>
+                            <a href="{% url 'reception:patient-detail' patient.id %}"
+                                class="btn btn-outline-modern btn-modern">
+                                <i class="fas fa-arrow-left me-2"></i> انصراف
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        
+        </div>
+        
+    </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        const orthoticRelevantConditions = [
+            { id: 'Flat-Foot', text: 'Flat Foot' },
+            { id: 'High-Arch-Foot', text: 'High Arch Foot (Pes Cavus)' },
+            { id: 'Over-Pronation', text: 'Overpronation' },
+            { id: 'Over-Supination', text: 'Oversupination' },
+            { id: 'Heel-Pain', text: 'Heel Pain' },
+            { id: 'Plantar-Fasciitis', text: 'Plantar Fasciitis' },
+            { id: 'Metatarsalgia', text: 'Metatarsalgia' },
+            { id: 'Achilles-Tendon-Disorder', text: 'Achilles Tendon Disorders' },
+            { id: 'Bunions', text: 'Bunions (Hallux Valgus)' },
+            { id: 'Hammer-Toe', text: 'Hammer Toe' },
+            { id: 'Claw-Toe', text: 'Claw Toe' },
+            { id: 'Knee-Pain', text: 'Knee Pain' },
+            { id: 'Hip-Pain', text: 'Hip Pain' },
+            { id: 'Low-Back-Pain', text: 'Low Back Pain' },
+            { id: 'Leg-Length-Discrepancy', text: 'Leg Length Discrepancy' },
+            { id: 'Ankle-Instability', text: 'Ankle Instability' },
+            { id: 'Postural-Abnormalities', text: 'Postural Abnormalities' },
+            { id: 'Diabetic-Foot', text: 'Diabetic Foot' },
+            { id: 'Pediatric-Gait-Abnormality', text: 'Pediatric Gait Abnormalities' },
+            { id: 'Post-Stroke-Gait', text: 'Post-Stroke Gait Disorders' },
+        ];
+
+        const prescription_groups = [
+            { id: 'کفی طبی', text: 'کفی طبی' },
+            { id: 'کفش طبی', text: 'کفش طبی' },
+            { id: 'صندل طبی', text: 'صندل طبی' },
+            { id: 'ارتز مچ پا', text: 'ارتز مچ پا' },
+            { id: 'ارتز زانو', text: 'ارتز زانو' },
+            { id: 'ارتز کمر', text: 'ارتز کمر' },
+        ];
+
+        const exercises = [
+            { id: 'Toe-Curls', text: 'Toe Curls' },
+            { id: 'Heel-Raises', text: 'Heel Raises' },
+            { id: 'Ankle-Circles', text: 'Ankle Circles' },
+            { id: 'Calf-Stretches', text: 'Calf Stretches' },
+            { id: 'Foot-Rolls', text: 'Foot Rolls' },
+            { id: 'Towel-Scrunches', text: 'Towel Scrunches' },
+            { id: 'Marble-Pickup', text: 'Marble Pickup' },
+            { id: 'Resistance-Band-Exercises', text: 'Resistance Band Exercises' },
+            { id: 'Balance-Exercises', text: 'Balance Exercises' },
+            { id: 'Arch-Strengthening', text: 'Arch Strengthening Exercises' },
+        ];
+
+        const designsByService = {
+            'کفی طبی': ['مدیال ودج', 'لترال ودج', 'هیلیوس', 'متاتارسال پد', 'پد پاشنه'],
+            'کفش طبی': ['پشتیبانی قوس', 'شوک آبسوربر', 'طراحی دیابتی', 'پد متاتارسال'],
+            'صندل طبی': ['ساپورت انگشتان', 'ارتفاع پاشنه', 'طراحی باز', 'طراحی بسته'],
+            'ارتز مچ پا': ['AFO', 'DAFO', 'SMO', 'ارتز سفارشی'],
+            'ارتز زانو': ['KAFO', 'ارتز کنترل زانو', 'ارتز استاتیک', 'ارتز دینامیک'],
+            'ارتز کمر': ['TLSO', 'LSO', 'کرست سفارشی', 'اسکولیوز بریس'],
+        };
+
+        // Select2 برای مشاهدات
+        function initObservations() {
+            $('#observations').select2({
+                tags: true,
+                placeholder: "انتخاب یا وارد کنید...",
+                allowClear: true,
+                data: orthoticRelevantConditions
+            });
+        }
+        initObservations();
+
+        // Select2 برای خدمات
+        $('#prescription-services').select2({
+            tags: true,
+            placeholder: "انتخاب یا وارد کنید...",
+            allowClear: true,
+            data: prescription_groups
+        });
+
+        // Select2 برای تمرین‌ها
+        $('#exercises').select2({
+            tags: true,
+            placeholder: "انتخاب یا وارد کنید...",
+            allowClear: true,
+            data: exercises
+        });
+
+        // وقتی تیک متفاوت برای مشاهدات زده شد
+        $('#separate-sides-observations').on('change', function () {
+            const container = $('#observations-container');
+            container.empty();
+
+            if (this.checked) {
+                container.append(`
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">مشاهدات پای راست</label>
+                        <select name="observations_right" class="form-select select2-tags" multiple></select>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copySide('observations', 'right', 'left')">انتقال به چپ</button>
+                            </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">مشاهدات پای چپ</label>
+                                <select name="observations_left" class="form-select select2-tags" multiple></select>
+                                <div class="mt-3">
+                                <button type="button" class="btn btn-outline-secondary btn-sm me-2" onclick="copySide('observations', 'left', 'right')">انتقال به راست</button>
+                            </div>
+                                </div>
+                </div>
+            `);
+                container.find('.select2-tags').select2({
+                    tags: true,
+                    placeholder: "انتخاب یا وارد کنید...",
+                    allowClear: true,
+                    data: orthoticRelevantConditions
+                });
+            } else {
+                container.append(`
+                <select name="observations" class="form-select select2-tags" id="observations" multiple></select>
+            `);
+                initObservations();
+            }
+        });
+
+        // تولید دینامیک بخش تجویز
+        $('#prescription-services').on('change', function () {
+            const selectedServices = $(this).val() || [];
+            const sectionsContainer = $('#designs-sections');
+            sectionsContainer.empty();
+
+            selectedServices.forEach(service => {
+                const safeService = service.replace(/\s+/g, '-');
+                const designs = designsByService[service] || [];
+
+                let content = `
+                <div class="design-section">
+                    <h6>طراحی ${service}</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">تعداد</label>
+                            <input type="number" name="quantity_${safeService}" class="form-control" min="1" value="1">
+                        </div>
+                    </div>
+            `;
+
+                if ($('#separate-sides-prescription').is(':checked')) {
+                    content += `
+                    <div class="row g-3">
+                        <div class="col-md-6 side-section">
+                            <label class="form-label fw-bold">پای راست</label>
+                            <select name="designs_${safeService}_right" class="form-select select2-tags" multiple></select>
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="copySide('designs_${safeService}', 'right', 'left')">انتقال به چپ</button>
+                            </div>
+                                </div>
+                                <div class="col-md-6 side-section">
+                                    <label class="form-label fw-bold">پای چپ</label>
+                                    <select name="designs_${safeService}_left" class="form-select select2-tags" multiple></select>
+                            <div class="mt-3">
+                                    <button type="button" class="btn btn-outline-primary btn-sm me-2" onclick="copySide('designs_${safeService}', 'left', 'right')">انتقال به راست</button>
+                            </div>
+                                    </div>
+                    </div>
+                `;
+                } else {
+                    content += `
+                    <select name="designs_${safeService}" class="form-select select2-tags" multiple></select>
+                `;
+                }
+
+                content += `</div>`;
+                sectionsContainer.append(content);
+
+                sectionsContainer.find('.select2-tags').each(function () {
+                    if (!$(this).hasClass('select2-hidden-accessible')) {
+                        $(this).select2({
+                            tags: true,
+                            placeholder: "انتخاب یا وارد کنید...",
+                            allowClear: true,
+                            data: designs.map(d => ({ id: d, text: d }))
+                        });
+                    }
+                });
+            });
+        });
+
+        $('#separate-sides-prescription').on('change', function () {
+            $('#prescription-services').trigger('change');
+        });
+
+        window.copySide = function (fieldPrefix, fromSide, toSide) {
+            const fromSelect = $(`select[name="${fieldPrefix}_${fromSide}"]`);
+            const toSelect = $(`select[name="${fieldPrefix}_${toSide}"]`);
+
+            if (fromSelect.length === 0 || toSelect.length === 0) return;
+
+            const fromData = fromSelect.select2('data') || [];
+            const ids = fromData.map(item => item.id);
+            toSelect.val(ids).trigger('change');
+        };
+    });
+</script>
+{% endblock %}

@@ -123,3 +123,70 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.message[:50]
+
+# reception/models.py
+
+class Examination(models.Model):
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='examinations',
+        verbose_name="بیمار"
+    )
+    exam_date = models.DateTimeField(
+        default=timezone.now,
+        verbose_name="تاریخ معاینه"
+    )
+    doctor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={'groups__name': 'Doctor'},  # اگر گروه پزشک داری
+        verbose_name="پزشک معاینه‌کننده"
+    )
+    observations = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="مشاهدات (انتخاب چندتایی یا دستی)"
+    )  # ذخیره به صورت کاما سپریتد، مثل "مشاهده1,مشاهده2"
+
+    prescription_services = models.JSONField(
+    default=dict,
+    blank=True,
+    verbose_name="تجویز خدمات و طراحی‌ها"
+)
+
+    prescription_designs = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="انتخاب طراحی‌ها (مدیال ودج و ...)"
+    )  # کاما سپریتد
+
+    exercises = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="تمرین‌ها"
+    )  # کاما سپریتد، بعداً برای لینک ویدیو گسترش می‌دیم
+
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="یادداشت معاینه‌گر"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="تاریخ ثبت")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_examinations',
+        verbose_name="ثبت شده توسط"
+    )
+
+    def __str__(self):
+        return f"معاینه {self.patient.full_name} - {self.exam_date|jformat:'%Y/%m/%d'}"
+
+    class Meta:
+        verbose_name = "معاینه"
+        verbose_name_plural = "معاینات"
+        ordering = ['-exam_date']

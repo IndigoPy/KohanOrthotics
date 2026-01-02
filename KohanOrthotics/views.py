@@ -11,6 +11,9 @@ from reception.models import Notification
 
 
 def custom_login(request):
+    if request.user.is_authenticated:
+            return redirect('main-dashboard')
+
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
